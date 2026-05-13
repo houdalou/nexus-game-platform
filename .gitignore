@@ -1,0 +1,43 @@
+# Backend (Java/Spring Boot)
+*.class
+*.jar
+*.war
+*.ear
+target/
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/
+mvnw
+mvnw.cmd
+.DS_Store
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Frontend (React/Node)
+game-platform-frontend/node_modules/
+game-platform-frontend/dist/
+game-platform-frontend/build/
+game-platform-frontend/.cache/
+game-platform-frontend/.parcel-cache/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Database
+*.db
+*.sqlite
