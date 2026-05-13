@@ -78,19 +78,19 @@ public interface RatingRepository extends JpaRepository<Rating, Long> {
 
     // Find rating by user and game
     // Without Spring: Would need manual SQL: SELECT * FROM ratings WHERE user_id = ? AND game_id = ?
-    Optional<Rating> findByUserAndGame(Long userId, Long gameId);
+    Optional<Rating> findByUser_UserIdAndGame_GameId(Long userId, Long gameId);
 
     // Check if rating exists
     // Without Spring: Would need manual SQL: SELECT COUNT(*) FROM ratings WHERE user_id = ? AND game_id = ?
-    boolean existsByUserAndGame(Long userId, Long gameId);
+    boolean existsByUser_UserIdAndGame_GameId(Long userId, Long gameId);
 
     // Get all ratings for a user
     // Without Spring: Would need manual SQL: SELECT * FROM ratings WHERE user_id = ?
-    List<Rating> findByUserId(Long userId);
+    List<Rating> findByUser_UserId(Long userId);
 
     // Get all ratings for a game
     // Without Spring: Would need manual SQL: SELECT * FROM ratings WHERE game_id = ?
-    List<Rating> findByGameId(Long gameId);
+    List<Rating> findByGame_GameId(Long gameId);
 
     // Calculate average rating for a game
     // Without Spring: Would need manual SQL: SELECT AVG(rating) FROM ratings WHERE game_id = ?
@@ -99,5 +99,5 @@ public interface RatingRepository extends JpaRepository<Rating, Long> {
 
     // Count ratings for a game
     // Without Spring: Would need manual SQL: SELECT COUNT(*) FROM ratings WHERE game_id = ?
-    long countByGameId(Long gameId);
+    long countByGame_GameId(Long gameId);
 }

@@ -123,7 +123,7 @@ public class CommentController {
     public List<Comment> getGameComments(@PathVariable Long gameId) {
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new RuntimeException("Game not found"));
-        return commentRepository.findByGameOrderByCreatedAtDesc(gameId);
+        return commentRepository.findByGame_GameIdOrderByCreatedAtDesc(gameId);
     }
 
     // Get user's comments
@@ -132,7 +132,7 @@ public class CommentController {
     public List<Comment> getUserComments(Authentication auth) {
         User user = userRepository.findByUsername(auth.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return commentRepository.findByUserId(user.getId());
+        return commentRepository.findByUser_UserId(user.getId());
     }
 
     // Delete a comment
@@ -156,7 +156,7 @@ public class CommentController {
     public Map<String, Long> getCommentCount(@PathVariable Long gameId) {
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new RuntimeException("Game not found"));
-        long count = commentRepository.countByGameId(gameId);
+        long count = commentRepository.countByGame_GameId(gameId);
         return Map.of("count", count);
     }
 }

@@ -98,7 +98,7 @@ public class FavoriteController {
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new RuntimeException("Game not found"));
 
-        if (favoriteRepository.existsByUserAndGame(user.getId(), game.getId())) {
+        if (favoriteRepository.existsByUser_UserIdAndGame_GameId(user.getId(), game.getId())) {
             throw new RuntimeException("Game already in favorites");
         }
 
@@ -118,11 +118,11 @@ public class FavoriteController {
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new RuntimeException("Game not found"));
 
-        if (!favoriteRepository.existsByUserAndGame(user.getId(), game.getId())) {
+        if (!favoriteRepository.existsByUser_UserIdAndGame_GameId(user.getId(), game.getId())) {
             throw new RuntimeException("Game not in favorites");
         }
 
-        favoriteRepository.deleteByUserAndGame(user.getId(), game.getId());
+        favoriteRepository.deleteByUser_UserIdAndGame_GameId(user.getId(), game.getId());
     }
 
     // Get user's favorites
@@ -131,7 +131,7 @@ public class FavoriteController {
     public List<Favorite> getUserFavorites(Authentication auth) {
         User user = userRepository.findByUsername(auth.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return favoriteRepository.findByUserId(user.getId());
+        return favoriteRepository.findByUser_UserId(user.getId());
     }
 
     // Check if game is in user's favorites
@@ -142,6 +142,6 @@ public class FavoriteController {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new RuntimeException("Game not found"));
-        return favoriteRepository.existsByUserAndGame(user.getId(), game.getId());
+        return favoriteRepository.existsByUser_UserIdAndGame_GameId(user.getId(), game.getId());
     }
 }

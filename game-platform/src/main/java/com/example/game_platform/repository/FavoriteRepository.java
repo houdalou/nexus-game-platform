@@ -75,21 +75,21 @@ public interface FavoriteRepository extends JpaRepository<Favorite, Long> {
 
     // Find favorite by user and game
     // Without Spring: Would need manual SQL: SELECT * FROM favorites WHERE user_id = ? AND game_id = ?
-    Optional<Favorite> findByUserAndGame(Long userId, Long gameId);
+    Optional<Favorite> findByUser_UserIdAndGame_GameId(Long userId, Long gameId);
 
     // Check if favorite exists
     // Without Spring: Would need manual SQL: SELECT COUNT(*) FROM favorites WHERE user_id = ? AND game_id = ?
-    boolean existsByUserAndGame(Long userId, Long gameId);
+    boolean existsByUser_UserIdAndGame_GameId(Long userId, Long gameId);
 
     // Get all favorites for a user
     // Without Spring: Would need manual SQL: SELECT * FROM favorites WHERE user_id = ?
-    List<Favorite> findByUserId(Long userId);
+    List<Favorite> findByUser_UserId(Long userId);
 
     // Get all favorites for a game
     // Without Spring: Would need manual SQL: SELECT * FROM favorites WHERE game_id = ?
-    List<Favorite> findByGameId(Long gameId);
+    List<Favorite> findByGame_GameId(Long gameId);
 
     // Delete favorite by user and game
     // Without Spring: Would need manual SQL: DELETE FROM favorites WHERE user_id = ? AND game_id = ?
-    void deleteByUserAndGame(Long userId, Long gameId);
+    void deleteByUser_UserIdAndGame_GameId(Long userId, Long gameId);
 }

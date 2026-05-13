@@ -106,8 +106,8 @@ public class RatingController {
         }
 
         // Check if rating already exists and update it
-        if (ratingRepository.existsByUserAndGame(user.getId(), game.getId())) {
-            Rating existing = ratingRepository.findByUserAndGame(user.getId(), game.getId())
+        if (ratingRepository.existsByUser_UserIdAndGame_GameId(user.getId(), game.getId())) {
+            Rating existing = ratingRepository.findByUser_UserIdAndGame_GameId(user.getId(), game.getId())
                     .orElseThrow(() -> new RuntimeException("Rating not found"));
             existing.setRating(ratingValue);
             return ratingRepository.save(existing);
@@ -128,7 +128,7 @@ public class RatingController {
     public List<Rating> getUserRatings(Authentication auth) {
         User user = userRepository.findByUsername(auth.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return ratingRepository.findByUserId(user.getId());
+        return ratingRepository.findByUser_UserId(user.getId());
     }
 
     // Get ratings for a specific game
@@ -137,7 +137,7 @@ public class RatingController {
     public List<Rating> getGameRatings(@PathVariable Long gameId) {
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new RuntimeException("Game not found"));
-        return ratingRepository.findByGameId(gameId);
+        return ratingRepository.findByGame_GameId(gameId);
     }
 
     // Get average rating for a game
@@ -148,7 +148,7 @@ public class RatingController {
                 .orElseThrow(() -> new RuntimeException("Game not found"));
         
         Double average = ratingRepository.averageRatingByGameId(gameId);
-        long count = ratingRepository.countByGameId(gameId);
+        long count = ratingRepository.countByGame_GameId(gameId);
         
         return Map.of(
                 "averageRating", average != null ? average : 0.0,
@@ -165,7 +165,7 @@ public class RatingController {
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new RuntimeException("Game not found"));
         
-        return ratingRepository.findByUserAndGame(user.getId(), game.getId())
+        return ratingRepository.findByUser_UserIdAndGame_GameId(user.getId(), game.getId())
                 .orElse(null);
     }
 }
