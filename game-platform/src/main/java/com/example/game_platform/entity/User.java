@@ -144,6 +144,24 @@ public class User implements UserDetails {
     @Builder.Default
     private Boolean banned = false;
 
+    // One-to-many relationship with favorites (games user has favorited)
+    // Without JPA: Would need manual query: SELECT * FROM favorites WHERE user_id = ?
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    // Without JPA: Would need manual cascade delete logic when user is deleted
+    private List<Favorite> favorites;
+
+    // One-to-many relationship with ratings (ratings user has given)
+    // Without JPA: Would need manual query: SELECT * FROM ratings WHERE user_id = ?
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    // Without JPA: Would need manual cascade delete logic when user is deleted
+    private List<Rating> ratings;
+
+    // One-to-many relationship with comments (comments user has posted)
+    // Without JPA: Would need manual query: SELECT * FROM comments WHERE user_id = ?
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    // Without JPA: Would need manual cascade delete logic when user is deleted
+    private List<Comment> comments;
+
     // Get rank alias for badge
     public String getRank() {
         return badge;
