@@ -13,11 +13,12 @@ public class QuizController {
 
     private final QuizService service;
 
+    // Constructor to inject QuizService dependency
     public QuizController(QuizService service) {
         this.service = service;
     }
 
-    // 🚀 START QUIZ
+    // Start a new quiz session with specified difficulty
     @PostMapping("/start")
     public Map<String, Object> start(
             @RequestParam String difficulty,
@@ -26,7 +27,7 @@ public class QuizController {
         return service.startQuiz(difficulty, authentication.getName());
     }
 
-    // 🏁 END QUIZ
+    // End a quiz session and record results
     @PostMapping("/end")
     public QuizSession end(
             @RequestParam Long sessionId,

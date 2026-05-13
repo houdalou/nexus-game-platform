@@ -16,6 +16,7 @@ public class StatsService {
     private final GameRepository gameRepository;
     private final ScoreRepository scoreRepository;
 
+    // Constructor to inject dependencies
     public StatsService(UserRepository userRepository,
                         GameRepository gameRepository,
                         ScoreRepository scoreRepository) {
@@ -24,6 +25,7 @@ public class StatsService {
         this.scoreRepository = scoreRepository;
     }
 
+    // Get global platform statistics
     public GlobalStatsDTO getGlobalStats() {
         long totalUsers = userRepository.count();
         long totalGames = gameRepository.count();

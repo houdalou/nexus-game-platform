@@ -2,6 +2,7 @@ package com.example.game_platform.dto;
 
 import lombok.*;
 
+// DTO for user update request
 @Getter
 @Setter
 @NoArgsConstructor

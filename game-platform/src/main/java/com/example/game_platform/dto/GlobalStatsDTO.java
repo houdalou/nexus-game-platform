@@ -4,6 +4,7 @@ import lombok.*;
 
 import java.util.List;
 
+// DTO for global platform statistics
 @Getter
 @Setter
 @NoArgsConstructor

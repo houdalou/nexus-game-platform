@@ -1,302 +1,412 @@
-import { useEffect, useState, useMemo } from "react";
+// AdminAnalytics.jsx
+
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Users,
-  Gamepad2,
+  UserCheck,
+  UserX,
   Trophy,
-  BarChart3,
-  Activity,
-  Star,
+  ShieldAlert,
 } from "lucide-react";
 
-import statsService from "../../services/statsService";
 import AdminLayout from "../../components/AdminLayout";
 import LoadingSpinner from "../../components/LoadingSpinner";
-
-const COLORS = ["#00f0ff", "#a855f7", "#ff2bd6", "#ff6b35", "#00ff9d"];
-
-/* ─── ROLE HELPERS (same logic as AdminUsers) ─── */
-const isAdmin = (u) =>
-  u?.role === "ADMIN" || u?.role === "ROLE_ADMIN";
-
-const isPlayer = (u) => !isAdmin(u);
+import StatusMessage from "../../components/StatusMessage";
+import userService from "../../services/userService";
 
 export default function AdminAnalytics() {
-  const [rawData, setRawData] = useState(null);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState(null);
 
   useEffect(() => {
-    fetchStats();
+    fetchUsers();
   }, []);
 
-  const fetchStats = async () => {
+  const fetchUsers = async () => {
     setLoading(true);
+
     try {
-      const res = await statsService.getGlobal();
-      setRawData(res.data);
+      const res = await userService.getAll();
+
+      // REMOVE ADMINS
+      const players = (res.data || []).filter(
+        (u) =>
+          u.role !== "ADMIN" &&
+          u.role !== "ROLE_ADMIN"
+      );
+
+      setUsers(players);
     } catch (err) {
       console.error(err);
-      setStatus({ type: "error", message: "Failed to load analytics" });
+
+      setStatus({
+        type: "error",
+        message: "Failed to load analytics",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  /* ─── DERIVED STATS (same useMemo pattern as AdminUsers.filteredUsers) ─── */
-  const stats = useMemo(() => {
-    if (!rawData) return null;
+  // ANALYTICS ONLY FOR PLAYERS
+  const analytics = useMemo(() => {
+    const totalPlayers = users.length;
 
-    // 1. Build the full user list — try every known key the backend might use
-    const usersList = rawData.users || rawData.allUsers || [];
+    const activePlayers = users.filter(
+      (u) => !u.banned
+    ).length;
 
-    // 2. Players only (strips admins just like AdminUsers does)
-    const players = Array.isArray(usersList) ? usersList.filter(isPlayer) : [];
+    const bannedPlayers = users.filter(
+      (u) => u.banned
+    ).length;
 
-    // 3. Active players
-    const activeUsersList = Array.isArray(rawData.activeUsersList)
-      ? rawData.activeUsersList.filter(isPlayer)
-      : [];
+    const totalXP = users.reduce(
+      (sum, u) => sum + (u.xp || 0),
+      0
+    );
 
-    // 4. Top players — keep only non-admins; preserve backend order
-    const topPlayers = Array.isArray(rawData.topPlayers)
-      ? rawData.topPlayers.filter(isPlayer)
-      : [];
+    const averageLevel =
+      totalPlayers > 0
+        ? (
+            users.reduce(
+              (sum, u) => sum + (u.level || 1),
+              0
+            ) / totalPlayers
+          ).toFixed(1)
+        : 0;
 
     return {
-      ...rawData,
-
-      // Prefer computed count from array; fall back to whatever the backend sent
-      totalUsers:
-        players.length > 0
-          ? players.length
-          : rawData.totalUsers ?? rawData.playerCount ?? 0,
-
-      activeUsers:
-        activeUsersList.length > 0
-          ? activeUsersList.length
-          : rawData.activeUsers ?? 0,
-
-      topPlayers,
+      totalPlayers,
+      activePlayers,
+      bannedPlayers,
+      totalXP,
+      averageLevel,
     };
-  }, [rawData]);
+  }, [users]);
+
+  const getAvatar = (user) => {
+    if (
+      user?.avatarUrl &&
+      user.avatarUrl.trim() !== ""
+    ) {
+      return user.avatarUrl;
+    }
+
+    return `https://api.dicebear.com/7.x/adventurer/png?seed=${user.username}`;
+  };
 
   return (
     <AdminLayout>
-      <div style={{ animation: "fadeIn 0.5s ease" }}>
-        <h1
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 24,
-            fontWeight: 700,
-            color: "var(--pink)",
-            margin: "0 0 24px",
-          }}
-        >
-          ANALYTICS (PLAYERS ONLY)
-        </h1>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 20,
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 28,
+              color: "var(--pink)",
+              marginBottom: 6,
+            }}
+          >
+            ANALYTICS DASHBOARD
+          </h1>
 
-        {loading || !stats ? (
+          <p
+            style={{
+              color: "var(--text-dim)",
+              fontSize: 13,
+            }}
+          >
+            Player statistics overview
+          </p>
+        </div>
+
+        <StatusMessage status={status} />
+
+        {loading ? (
           <LoadingSpinner />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            {/* STATS CARDS */}
+          <>
+            {/* STATS */}
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(220px, 1fr))",
                 gap: 16,
               }}
             >
-              <StatCard
-                icon={Users}
-                label="Total Players"
-                value={stats.totalUsers}
-                color="var(--cyan)"
-              />
-              <StatCard
-                icon={Activity}
-                label="Active Players"
-                value={stats.activeUsers}
-                color="var(--green)"
-              />
-              <StatCard
-                icon={Gamepad2}
-                label="Total Games"
-                value={stats.totalGames ?? 0}
+              <AnalyticsCard
+                title="Total Players"
+                value={analytics.totalPlayers}
+                icon={<Users size={20} />}
                 color="var(--pink)"
               />
-              <StatCard
-                icon={BarChart3}
-                label="Total Scores"
-                value={stats.totalScores ?? 0}
-                color="#a855f7"
+
+              <AnalyticsCard
+                title="Active Players"
+                value={analytics.activePlayers}
+                icon={<UserCheck size={20} />}
+                color="var(--green)"
               />
-              <StatCard
-                icon={Star}
-                label="Avg Score"
-                value={stats.averageScore?.toFixed(1) ?? "0.0"}
-                color="#ff6b35"
+
+              <AnalyticsCard
+                title="Banned Players"
+                value={analytics.bannedPlayers}
+                icon={<UserX size={20} />}
+                color="var(--red)"
+              />
+
+              <AnalyticsCard
+                title="Total XP"
+                value={analytics.totalXP}
+                icon={<Trophy size={20} />}
+                color="var(--cyan)"
+              />
+
+              <AnalyticsCard
+                title="Average Level"
+                value={analytics.averageLevel}
+                icon={<ShieldAlert size={20} />}
+                color="var(--yellow)"
               />
             </div>
 
-            {/* TOP PLAYERS */}
+            {/* PLAYERS TABLE */}
             <div
               style={{
                 background: "var(--bg-card)",
-                border: "1px solid var(--border-dim)",
-                borderRadius: "var(--radius)",
-                padding: 24,
+                border:
+                  "1px solid var(--border-dim)",
+                borderRadius: 12,
+                overflow: "hidden",
               }}
             >
-              <h2
+              <div
                 style={{
+                  padding: 16,
+                  borderBottom:
+                    "1px solid var(--border-dim)",
                   fontFamily: "var(--font-display)",
-                  fontSize: 14,
                   letterSpacing: 2,
+                  fontSize: 12,
                   color: "var(--text-dim)",
-                  margin: "0 0 16px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
                 }}
               >
-                <Trophy size={16} color="var(--pink)" />
-                TOP PLAYERS
-              </h2>
+                PLAYERS
+              </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {stats.topPlayers.length > 0 ? (
-                  stats.topPlayers.map((p, i) => (
-                    <PlayerRow key={p.id ?? i} player={p} rank={i} />
-                  ))
-                ) : (
-                  <p style={{ color: "var(--text-dim)", fontSize: 13 }}>
-                    No players found
-                  </p>
-                )}
+              <div style={{ overflowX: "auto" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      {[
+                        "Player",
+                        "Level",
+                        "XP",
+                        "Status",
+                      ].map((head) => (
+                        <th
+                          key={head}
+                          style={{
+                            textAlign: "left",
+                            padding: "14px 16px",
+                            fontSize: 11,
+                            color: "var(--text-dim)",
+                            borderBottom:
+                              "1px solid var(--border-dim)",
+                            letterSpacing: 1,
+                          }}
+                        >
+                          {head}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {users.map((user) => (
+                      <motion.tr
+                        key={user.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        style={{
+                          borderBottom:
+                            "1px solid var(--border-dim)",
+                        }}
+                      >
+                        <td
+                          style={{
+                            padding: "14px 16px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                            }}
+                          >
+                            <img
+                              src={getAvatar(user)}
+                              onError={(e) => {
+                                e.target.src = `https://api.dicebear.com/7.x/adventurer/png?seed=${user.username}`;
+                              }}
+                              alt={user.username}
+                              style={{
+                                width: 38,
+                                height: 38,
+                                borderRadius: "50%",
+                                objectFit: "cover",
+                                border:
+                                  "1px solid var(--border-dim)",
+                              }}
+                            />
+
+                            <div>
+                              <div
+                                style={{
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {user.username}
+                              </div>
+
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  color:
+                                    "var(--text-dim)",
+                                }}
+                              >
+                                {user.email}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td
+                          style={{
+                            padding: "14px 16px",
+                          }}
+                        >
+                          LV.{user.level || 1}
+                        </td>
+
+                        <td
+                          style={{
+                            padding: "14px 16px",
+                          }}
+                        >
+                          {user.xp || 0}
+                        </td>
+
+                        <td
+                          style={{
+                            padding: "14px 16px",
+                          }}
+                        >
+                          <span
+                            style={{
+                              color: user.banned
+                                ? "var(--red)"
+                                : "var(--green)",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {user.banned
+                              ? "BANNED"
+                              : "ACTIVE"}
+                          </span>
+                        </td>
+                      </motion.tr>
+                    ))}
+
+                    {users.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          style={{
+                            padding: 40,
+                            textAlign: "center",
+                            color:
+                              "var(--text-dim)",
+                          }}
+                        >
+                          No players found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </AdminLayout>
   );
 }
 
-/* ─── PLAYER ROW ─── */
-function PlayerRow({ player: p, rank: i }) {
-  /* Avatar: prefer real URL, fall back to DiceBear (v9) */
-  const avatarSrc =
-    p.avatarUrl ||
-    `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(p.username)}`;
-
+function AnalyticsCard({
+  title,
+  value,
+  icon,
+  color,
+}) {
   return (
     <motion.div
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: i * 0.05 }}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "10px 12px",
-        borderRadius: 8,
-        background: i === 0 ? "rgba(255,43,214,0.06)" : "rgba(0,0,0,0.2)",
-        border:
-          i === 0
-            ? "1px solid rgba(255,43,214,0.2)"
-            : "1px solid var(--border-dim)",
-      }}
-    >
-      {/* Rank badge */}
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          background: i < 3 ? COLORS[i] : "var(--border-dim)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 12,
-          fontWeight: 700,
-          color: "#000",
-          flexShrink: 0,
-        }}
-      >
-        {i + 1}
-      </div>
-
-      {/* Avatar */}
-      <img
-        src={avatarSrc}
-        alt=""
-        onError={(e) => {
-          // If the real avatarUrl is broken, fall back to DiceBear
-          e.currentTarget.src = `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(p.username)}`;
-        }}
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: "50%",
-          objectFit: "cover",
-          border: "1px solid var(--border-dim)",
-          flexShrink: 0,
-        }}
-      />
-
-      {/* Name / level */}
-      <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 600, fontSize: 14 }}>{p.username}</div>
-        <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
-          LV.{p.level || 1}
-          {p.badge ? ` • ${p.badge}` : ""}
-        </div>
-      </div>
-
-      {/* Score */}
-      <div style={{ textAlign: "right" }}>
-        <div style={{ fontWeight: 700, color: "var(--cyan)", fontSize: 14 }}>
-          {p.totalScore ?? 0}
-        </div>
-        <div style={{ fontSize: 10, color: "var(--text-dim)" }}>SCORE</div>
-      </div>
-    </motion.div>
-  );
-}
-
-/* ─── STATS CARD ─── */
-function StatCard({ icon: Icon, label, value, color }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -4 }}
       style={{
         background: "var(--bg-card)",
         border: "1px solid var(--border-dim)",
-        borderRadius: "var(--radius)",
-        padding: 20,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
+        borderRadius: 14,
+        padding: 18,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <Icon size={16} color={color} />
-        <span
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: 14,
+        }}
+      >
+        <div
           style={{
-            fontSize: 10,
-            fontFamily: "var(--font-display)",
-            letterSpacing: 2,
-            textTransform: "uppercase",
             color: "var(--text-dim)",
+            fontSize: 12,
+            letterSpacing: 1,
           }}
         >
-          {label}
-        </span>
+          {title}
+        </div>
+
+        <div style={{ color }}>
+          {icon}
+        </div>
       </div>
-      <div style={{ fontSize: 28, fontWeight: 700, color }}>{value}</div>
+
+      <div
+        style={{
+          fontSize: 28,
+          fontWeight: 700,
+          color,
+        }}
+      >
+        {value}
+      </div>
     </motion.div>
   );
 }

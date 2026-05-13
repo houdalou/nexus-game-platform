@@ -14,10 +14,12 @@ public class QuizSessionController {
 
     private final QuizSessionRepository sessionRepo;
 
+    // Constructor to inject QuizSessionRepository dependency
     public QuizSessionController(QuizSessionRepository sessionRepo) {
         this.sessionRepo = sessionRepo;
     }
 
+    // Get quiz sessions for the authenticated user
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
     public List<QuizSession> getMySessions(Authentication authentication) {

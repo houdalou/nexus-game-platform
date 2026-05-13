@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Users, Gamepad2, Trophy, BarChart3, Activity, Star } from "lucide-react";
+import {
+  Users,
+  Gamepad2,
+  Trophy,
+  BarChart3,
+  Activity,
+  Star,
+} from "lucide-react";
+
 import statsService from "../../services/statsService";
 import gameService from "../../services/gameService";
 import userService from "../../services/userService";
+
 import AdminLayout from "../../components/AdminLayout";
 import LoadingSpinner from "../../components/LoadingSpinner";
-
-const STAT_COLORS = {
-  users: "var(--cyan)",
-  games: "var(--pink)",
-  scores: "#a855f7",
-  avg: "#ff6b35",
-};
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
@@ -24,17 +25,58 @@ export default function AdminDashboard() {
     fetchData();
   }, []);
 
+  const getAvatar = (user) => {
+    if (
+      user?.avatarUrl &&
+      user.avatarUrl.trim() !== ""
+    ) {
+      return user.avatarUrl;
+    }
+
+    return `https://api.dicebear.com/7.x/adventurer/png?seed=${user.username}`;
+  };
+
   const fetchData = async () => {
     setLoading(true);
+
     try {
       const [s, g, u] = await Promise.all([
         statsService.getGlobal(),
         gameService.getAllAdmin(),
         userService.getAll(),
       ]);
-      setStats(s.data);
-      setGames(g.data);
-      setUsers(u.data);
+
+      // REMOVE ADMINS
+      const players = (u.data || []).filter(
+        (user) =>
+          user.role !== "ADMIN" &&
+          user.role !== "ROLE_ADMIN"
+      );
+
+      // TOP PLAYERS WITHOUT ADMINS
+      const topPlayers =
+        (s.data?.topPlayers || []).filter(
+          (p) =>
+            p.role !== "ADMIN" &&
+            p.role !== "ROLE_ADMIN"
+        );
+
+      // REBUILD STATS USING PLAYERS ONLY
+      const fixedStats = {
+        ...s.data,
+
+        totalUsers: players.length,
+
+        activeUsers: players.filter(
+          (u) => !u.banned
+        ).length,
+
+        topPlayers,
+      };
+
+      setStats(fixedStats);
+      setGames(g.data || []);
+      setUsers(players);
     } catch (err) {
       console.error(err);
     } finally {
@@ -42,120 +84,476 @@ export default function AdminDashboard() {
     }
   };
 
-  const filteredTopPlayers = stats?.topPlayers?.filter(p => p.role !== "ADMIN" && p.role !== "ROLE_ADMIN") || [];
-  const filteredRecentUsers = users.filter(u => u.role !== "ADMIN" && u.role !== "ROLE_ADMIN");
+  const STAT_DEFS = [
+    {
+      key: "totalUsers",
+      label: "Total players",
+      icon: Users,
+      color: "#7eb8d4",
+    },
+    {
+      key: "activeUsers",
+      label: "Active players",
+      icon: Activity,
+      color: "#6aac7a",
+    },
+    {
+      key: "totalGames",
+      label: "Games",
+      icon: Gamepad2,
+      color: "#a78bfa",
+    },
+    {
+      key: "totalScores",
+      label: "Scores",
+      icon: BarChart3,
+      color: "#e6b84a",
+    },
+    {
+      key: "averageScore",
+      label: "Avg score",
+      icon: Star,
+      color: "#e05c68",
+      toFixed: 1,
+    },
+  ];
+
+  const topPlayers = stats?.topPlayers || [];
+  const recentUsers = users || [];
 
   return (
     <AdminLayout>
-      <div style={{ animation: "fadeIn 0.5s ease" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "var(--pink)", margin: "0 0 8px" }}>
-          DASHBOARD
-        </h1>
-        <p style={{ margin: "0 0 24px", color: "var(--text-dim)", fontSize: 13 }}>
-          Platform overview and key metrics
-        </p>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-        {loading || !stats ? (
-          <LoadingSpinner />
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            {/* Stat Cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16 }}>
-              <StatCard icon={Users} label="Total Users" value={stats.totalUsers} color={STAT_COLORS.users} />
-              <StatCard icon={Activity} label="Active Users" value={stats.activeUsers} color="var(--green)" />
-              <StatCard icon={Gamepad2} label="Games" value={stats.totalGames} color={STAT_COLORS.games} />
-              <StatCard icon={BarChart3} label="Scores" value={stats.totalScores} color={STAT_COLORS.scores} />
-              <StatCard icon={Star} label="Avg Score" value={stats.averageScore.toFixed(1)} color={STAT_COLORS.avg} />
+        .adm-page-title{
+          font-size:22px;
+          font-weight:700;
+          color:#d8dde8;
+          letter-spacing:-0.4px;
+          margin-bottom:4px;
+        }
+
+        .adm-page-sub{
+          font-family:'JetBrains Mono',monospace;
+          font-size:11px;
+          letter-spacing:1.5px;
+          color:rgba(200,210,220,0.3);
+          margin-bottom:28px;
+        }
+
+        .adm-stat-grid{
+          display:grid;
+          grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+          gap:12px;
+          margin-bottom:24px;
+        }
+
+        .adm-stat{
+          background:rgba(10,13,24,0.9);
+          border:1px solid rgba(255,255,255,0.07);
+          border-radius:14px;
+          padding:18px 20px;
+          position:relative;
+          overflow:hidden;
+          transition:border-color 0.2s,transform 0.2s;
+        }
+
+        .adm-stat:hover{
+          border-color:rgba(255,255,255,0.13);
+          transform:translateY(-1px)
+        }
+
+        .adm-stat::before{
+          content:'';
+          position:absolute;
+          top:0;
+          left:20%;
+          right:20%;
+          height:1px;
+          background:var(--sc);
+          opacity:0.55;
+        }
+
+        .adm-stat-head{
+          display:flex;
+          align-items:center;
+          gap:7px;
+          margin-bottom:12px;
+        }
+
+        .adm-stat-label{
+          font-family:'JetBrains Mono',monospace;
+          font-size:10px;
+          letter-spacing:1.5px;
+          color:rgba(200,210,220,0.3);
+          text-transform:uppercase;
+        }
+
+        .adm-stat-val{
+          font-size:26px;
+          font-weight:700;
+          color:var(--sc);
+          letter-spacing:-0.5px;
+          line-height:1;
+        }
+
+        .adm-panels{
+          display:grid;
+          grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+          gap:16px;
+        }
+
+        .adm-panel{
+          background:rgba(10,13,24,0.9);
+          border:1px solid rgba(255,255,255,0.07);
+          border-radius:14px;
+          padding:18px 20px;
+          position:relative;
+          overflow:hidden;
+        }
+
+        .adm-panel::after{
+          content:'';
+          position:absolute;
+          top:0;
+          left:15%;
+          right:15%;
+          height:1px;
+          background:linear-gradient(
+            90deg,
+            transparent,
+            var(--pc,rgba(126,184,212,0.35)),
+            transparent
+          );
+        }
+
+        .adm-panel-title{
+          display:flex;
+          align-items:center;
+          gap:8px;
+          font-family:'JetBrains Mono',monospace;
+          font-size:10px;
+          letter-spacing:2px;
+          text-transform:uppercase;
+          color:rgba(200,210,220,0.3);
+          margin-bottom:16px;
+        }
+
+        .adm-row{
+          display:flex;
+          align-items:center;
+          gap:10px;
+          padding:9px 0;
+          border-bottom:1px solid rgba(255,255,255,0.05);
+        }
+
+        .adm-row:last-child{
+          border-bottom:none
+        }
+
+        .adm-row-rank{
+          font-family:'JetBrains Mono',monospace;
+          font-size:11px;
+          font-weight:500;
+          color:rgba(200,210,220,0.25);
+          min-width:20px;
+        }
+
+        .adm-row-rank.top{
+          color:#e6b84a
+        }
+
+        .adm-avatar{
+          width:28px;
+          height:28px;
+          border-radius:50%;
+          border:1px solid rgba(255,255,255,0.08);
+          object-fit:cover;
+          flex-shrink:0;
+        }
+
+        .adm-row-name{
+          flex:1;
+          font-size:13px;
+          font-weight:500;
+          color:#d8dde8;
+        }
+
+        .adm-row-val{
+          font-family:'JetBrains Mono',monospace;
+          font-size:12px;
+          font-weight:500;
+          color:#7eb8d4;
+        }
+
+        .adm-pill{
+          font-family:'JetBrains Mono',monospace;
+          font-size:9px;
+          letter-spacing:1px;
+          padding:3px 8px;
+          border-radius:6px;
+          border:1px solid rgba(255,255,255,0.08);
+          color:rgba(200,210,220,0.35);
+          text-transform:uppercase;
+        }
+
+        .adm-pill.banned{
+          border-color:rgba(224,92,104,0.3);
+          color:#e05c68;
+          background:rgba(224,92,104,0.08)
+        }
+
+        .adm-pill.on{
+          border-color:rgba(106,172,122,0.3);
+          color:#6aac7a;
+          background:rgba(106,172,122,0.08)
+        }
+
+        .adm-empty{
+          font-family:'JetBrains Mono',monospace;
+          font-size:11px;
+          letter-spacing:1.5px;
+          color:rgba(200,210,220,0.2);
+          text-align:center;
+          padding:24px 0;
+        }
+      `}</style>
+
+      <div className="adm-page-title">
+        Dashboard
+      </div>
+
+      <div className="adm-page-sub">
+        Platform overview
+      </div>
+
+      {loading || !stats ? (
+        <LoadingSpinner />
+      ) : (
+        <>
+          {/* STATS */}
+          <div className="adm-stat-grid">
+            {STAT_DEFS.map(
+              ({
+                key,
+                label,
+                icon: Icon,
+                color,
+                toFixed,
+              }) => (
+                <div
+                  key={key}
+                  className="adm-stat"
+                  style={{ "--sc": color }}
+                >
+                  <div className="adm-stat-head">
+                    <Icon
+                      size={14}
+                      color={color}
+                    />
+
+                    <span className="adm-stat-label">
+                      {label}
+                    </span>
+                  </div>
+
+                  <div className="adm-stat-val">
+                    {toFixed != null
+                      ? Number(
+                          stats[key] ?? 0
+                        ).toFixed(toFixed)
+                      : (
+                          stats[key] ?? 0
+                        ).toLocaleString()}
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+
+          {/* PANELS */}
+          <div className="adm-panels">
+            {/* TOP PLAYERS */}
+            <div
+              className="adm-panel"
+              style={{
+                "--pc":
+                  "rgba(230,184,74,0.4)",
+              }}
+            >
+              <div className="adm-panel-title">
+                <Trophy
+                  size={13}
+                  color="#e6b84a"
+                />
+
+                Top players
+              </div>
+
+              {topPlayers.length === 0 ? (
+                <p className="adm-empty">
+                  No players yet
+                </p>
+              ) : (
+                topPlayers
+                  .slice(0, 5)
+                  .map((p, i) => (
+                    <div
+                      key={p.id}
+                      className="adm-row"
+                    >
+                      <span
+                        className={`adm-row-rank ${
+                          i < 3 ? "top" : ""
+                        }`}
+                      >
+                        {String(i + 1).padStart(
+                          2,
+                          "0"
+                        )}
+                      </span>
+
+                      <img
+                        src={getAvatar(p)}
+                        onError={(e) => {
+                          e.target.src = `https://api.dicebear.com/7.x/adventurer/png?seed=${p.username}`;
+                        }}
+                        alt={p.username}
+                        className="adm-avatar"
+                      />
+
+                      <span className="adm-row-name">
+                        {p.username}
+                      </span>
+
+                      <span className="adm-row-val">
+                        {(
+                          p.totalScore || 0
+                        ).toLocaleString()}
+                      </span>
+                    </div>
+                  ))
+              )}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
-              {/* Top Players */}
-              <Panel title="TOP PLAYERS" icon={Trophy} color="var(--pink)">
-                {filteredTopPlayers.length > 0 ? (
-                  filteredTopPlayers.slice(0, 5).map((p, i) => (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border-dim)" }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? STAT_COLORS.scores : "var(--text-dim)", width: 16 }}>{i + 1}</span>
-                      <img src={p.avatarUrl || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${p.username}`} alt="" style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--border-dim)" }} />
-                      <span style={{ flex: 1, fontSize: 13 }}>{p.username}</span>
-                      <span style={{ fontSize: 12, color: "var(--cyan)", fontWeight: 600 }}>{p.totalScore || 0}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p style={{ color: "var(--text-dim)", fontSize: 13 }}>No players yet</p>
-                )}
-              </Panel>
+            {/* GAMES */}
+            <div
+              className="adm-panel"
+              style={{
+                "--pc":
+                  "rgba(126,184,212,0.35)",
+              }}
+            >
+              <div className="adm-panel-title">
+                <Gamepad2
+                  size={13}
+                  color="#7eb8d4"
+                />
 
-              {/* Recent Games */}
-              <Panel title="GAMES" icon={Gamepad2} color="var(--cyan)">
-                {games.length > 0 ? (
-                  games.slice(0, 5).map((g) => (
-                    <div key={g.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--border-dim)" }}>
-                      <span style={{ fontSize: 13 }}>{g.title}</span>
-                      <span style={{ fontSize: 10, fontFamily: "var(--font-display)", letterSpacing: 1, color: "var(--text-dim)", textTransform: "uppercase" }}>
-                        {g.enabled !== false ? "ON" : "OFF"} &bull; {g.category || "ARCADE"}
+                Games
+              </div>
+
+              {games.length === 0 ? (
+                <p className="adm-empty">
+                  No games yet
+                </p>
+              ) : (
+                games.slice(0, 5).map((g) => (
+                  <div
+                    key={g.id}
+                    className="adm-row"
+                  >
+                    <span className="adm-row-name">
+                      {g.title}
+                    </span>
+
+                    <span
+                      className={`adm-pill ${
+                        g.enabled !== false
+                          ? "on"
+                          : ""
+                      }`}
+                    >
+                      {g.enabled !== false
+                        ? "Live"
+                        : "Off"}
+                    </span>
+
+                    <span
+                      className="adm-pill"
+                      style={{
+                        marginLeft: 4,
+                      }}
+                    >
+                      {g.category ||
+                        "Arcade"}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* RECENT USERS */}
+            <div
+              className="adm-panel"
+              style={{
+                "--pc":
+                  "rgba(106,172,122,0.35)",
+              }}
+            >
+              <div className="adm-panel-title">
+                <Users
+                  size={13}
+                  color="#6aac7a"
+                />
+
+                Recent players
+              </div>
+
+              {recentUsers.length === 0 ? (
+                <p className="adm-empty">
+                  No users yet
+                </p>
+              ) : (
+                recentUsers
+                  .slice(0, 5)
+                  .map((u) => (
+                    <div
+                      key={u.id}
+                      className="adm-row"
+                    >
+                      <img
+                        src={getAvatar(u)}
+                        onError={(e) => {
+                          e.target.src = `https://api.dicebear.com/7.x/adventurer/png?seed=${u.username}`;
+                        }}
+                        alt={u.username}
+                        className="adm-avatar"
+                      />
+
+                      <span className="adm-row-name">
+                        {u.username}
+                      </span>
+
+                      <span
+                        className={`adm-pill ${
+                          u.banned
+                            ? "banned"
+                            : ""
+                        }`}
+                      >
+                        {u.banned
+                          ? "Banned"
+                          : "Player"}
                       </span>
                     </div>
                   ))
-                ) : (
-                  <p style={{ color: "var(--text-dim)", fontSize: 13 }}>No games yet</p>
-                )}
-              </Panel>
-
-              {/* Recent Users */}
-              <Panel title="RECENT USERS" icon={Users} color="var(--green)">
-                {filteredRecentUsers.length > 0 ? (
-                  filteredRecentUsers.slice(0, 5).map((u) => (
-                    <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border-dim)" }}>
-                      <img src={u.avatarUrl || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${u.username}`} alt="" style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--border-dim)" }} />
-                      <span style={{ flex: 1, fontSize: 13 }}>{u.username}</span>
-                      <span style={{ fontSize: 11, color: u.banned ? "var(--pink)" : "var(--text-dim)" }}>
-                        {u.banned ? "BANNED" : u.role}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <p style={{ color: "var(--text-dim)", fontSize: 13 }}>No users yet</p>
-                )}
-              </Panel>
+              )}
             </div>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </AdminLayout>
-  );
-}
-
-function StatCard({ icon: Icon, label, value, color }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      style={{
-        background: "var(--bg-card)",
-        border: "1px solid var(--border-dim)",
-        borderRadius: "var(--radius)",
-        padding: 20,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-dim)" }}>
-        <Icon size={16} color={color} />
-        <span style={{ fontSize: 10, fontFamily: "var(--font-display)", letterSpacing: 2, textTransform: "uppercase" }}>{label}</span>
-      </div>
-      <div style={{ fontSize: 28, fontWeight: 700, color }}>{value}</div>
-    </motion.div>
-  );
-}
-
-function Panel({ title, icon: Icon, color, children }) {
-  return (
-    <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-dim)", borderRadius: "var(--radius)", padding: 20 }}>
-      <h3 style={{ fontFamily: "var(--font-display)", fontSize: 12, letterSpacing: 2, color: "var(--text-dim)", margin: "0 0 14px", display: "flex", alignItems: "center", gap: 8 }}>
-        <Icon size={14} color={color} /> {title}
-      </h3>
-      {children}
-    </div>
   );
 }

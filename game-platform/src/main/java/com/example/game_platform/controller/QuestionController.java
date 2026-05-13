@@ -12,28 +12,28 @@ public class QuestionController {
 
     private final QuestionRepository repo;
 
+    // Constructor to inject QuestionRepository dependency
     public QuestionController(QuestionRepository repo) {
         this.repo = repo;
     }
 
-    // 📚 GET ALL QUESTIONS (TEST ONLY)
+    // Get all questions (for testing purposes)
     @GetMapping
     public List<Question> getAllQuestions() {
         return repo.findAll();
     }
 
-    // 🎯 GET QUESTIONS BY CATEGORY
+    // Get questions by category
     @GetMapping("/category/{category}")
     public List<Question> getByCategory(@PathVariable String category) {
         return repo.findByCategory(category);
     }
 
-    // ➕ ADD QUESTION (TEST / ADMIN TEMP)
+    // Add new question (for testing/admin purposes)
     @PostMapping
     public Question addQuestion(@RequestBody Question question) {
         return repo.save(question);
     }
 
-    // ❌ REMOVE THIS (IMPORTANT)
-    // DO NOT put QuizService here
+    // Note: Do not put QuizService here
 }

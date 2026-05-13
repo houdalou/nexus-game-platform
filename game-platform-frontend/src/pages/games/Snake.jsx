@@ -7,11 +7,41 @@ const CELL = 24;
 const W = GRID * CELL;
 const H = GRID * CELL;
 
-function randFood(snake) {
+function randFood(snake, obstacles = [], bombs = []) {
   let pos;
   do {
     pos = { x: Math.floor(Math.random() * GRID), y: Math.floor(Math.random() * GRID) };
-  } while (snake.some((s) => s.x === pos.x && s.y === pos.y));
+  } while (
+    snake.some((s) => s.x === pos.x && s.y === pos.y) ||
+    obstacles.some((o) => o.x === pos.x && o.y === pos.y) ||
+    bombs.some((b) => b.x === pos.x && b.y === pos.y)
+  );
+  return pos;
+}
+
+function randObstacle(snake, food, existingObstacles = [], bombs = []) {
+  let pos;
+  do {
+    pos = { x: Math.floor(Math.random() * GRID), y: Math.floor(Math.random() * GRID) };
+  } while (
+    snake.some((s) => s.x === pos.x && s.y === pos.y) ||
+    (food && food.x === pos.x && food.y === pos.y) ||
+    existingObstacles.some((o) => o.x === pos.x && o.y === pos.y) ||
+    bombs.some((b) => b.x === pos.x && b.y === pos.y)
+  );
+  return pos;
+}
+
+function randBomb(snake, food, obstacles = [], existingBombs = []) {
+  let pos;
+  do {
+    pos = { x: Math.floor(Math.random() * GRID), y: Math.floor(Math.random() * GRID) };
+  } while (
+    snake.some((s) => s.x === pos.x && s.y === pos.y) ||
+    (food && food.x === pos.x && food.y === pos.y) ||
+    obstacles.some((o) => o.x === pos.x && o.y === pos.y) ||
+    existingBombs.some((b) => b.x === pos.x && b.y === pos.y)
+  );
   return pos;
 }
 
@@ -25,6 +55,12 @@ export default function Snake() {
   );
   const [gameOver, setGameOver] = useState(false);
   const [started, setStarted] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [speed, setSpeed] = useState(150);
+  const [level, setLevel] = useState(1);
+  const [difficulty, setDifficulty] = useState("medium"); // easy, medium, hard
+  const [obstacles, setObstacles] = useState([]);
+  const [bombs, setBombs] = useState([]);
 
   const stateRef = useRef({
     snake: [{ x: 10, y: 10 }],
@@ -56,6 +92,48 @@ export default function Snake() {
       ctx.stroke();
     }
 
+    // Draw obstacles (blocks)
+    obstacles.forEach((obs) => {
+      const ox = obs.x * CELL;
+      const oy = obs.y * CELL;
+      ctx.shadowColor = "#888";
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = "#444";
+      ctx.fillRect(ox + 1, oy + 1, CELL - 2, CELL - 2);
+      ctx.shadowBlur = 0;
+      
+      // Add X pattern on obstacle
+      ctx.strokeStyle = "#666";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(ox + 4, oy + 4);
+      ctx.lineTo(ox + CELL - 4, oy + CELL - 4);
+      ctx.moveTo(ox + CELL - 4, oy + 4);
+      ctx.lineTo(ox + 4, oy + CELL - 4);
+      ctx.stroke();
+    });
+
+    // Draw bombs
+    bombs.forEach((bomb) => {
+      const bx = bomb.x * CELL;
+      const by = bomb.y * CELL;
+      ctx.shadowColor = "#dc505a";
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = "#dc505a";
+      ctx.beginPath();
+      ctx.arc(bx + CELL/2, by + CELL/2, CELL/2 - 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      
+      // Add fuse effect
+      ctx.strokeStyle = "#ff9900";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(bx + CELL/2, by + CELL/2);
+      ctx.lineTo(bx + CELL/2 + 6, by + CELL/2 - 6);
+      ctx.stroke();
+    });
+
     const fx = s.food.x * CELL;
     const fy = s.food.y * CELL;
 
@@ -77,23 +155,51 @@ export default function Snake() {
 
       ctx.shadowBlur = 0;
     });
-  }, []);
+  }, [obstacles, bombs]);
 
   const gameLoop = useCallback(() => {
     const s = stateRef.current;
-    if (s.over) return;
+    if (s.over || paused) return;
 
     const head = {
       x: s.snake[0].x + s.dir.x,
       y: s.snake[0].y + s.dir.y,
     };
 
-    if (
-      head.x < 0 ||
-      head.x >= GRID ||
-      head.y < 0 ||
-      s.snake.some((seg) => seg.x === head.x && seg.y === head.y)
-    ) {
+    // Wrap around walls instead of dying
+    if (head.x < 0) head.x = GRID - 1;
+    if (head.x >= GRID) head.x = 0;
+    if (head.y < 0) head.y = GRID - 1;
+    if (head.y >= GRID) head.y = 0;
+
+    // Check collision with snake
+    if (s.snake.some((seg) => seg.x === head.x && seg.y === head.y)) {
+      s.over = true;
+      setGameOver(true);
+
+      setHighScore((prev) => {
+        const next = Math.max(prev, s.score);
+        localStorage.setItem("snakeHigh", String(next));
+        return next;
+      });
+      return;
+    }
+
+    // Check collision with bombs - instant game over
+    if (bombs.some((b) => b.x === head.x && b.y === head.y)) {
+      s.over = true;
+      setGameOver(true);
+
+      setHighScore((prev) => {
+        const next = Math.max(prev, s.score);
+        localStorage.setItem("snakeHigh", String(next));
+        return next;
+      });
+      return;
+    }
+
+    // Check collision with obstacles - instant game over
+    if (obstacles.some((o) => o.x === head.x && o.y === head.y)) {
       s.over = true;
       setGameOver(true);
 
@@ -108,49 +214,87 @@ export default function Snake() {
     s.snake.unshift(head);
 
     if (head.x === s.food.x && head.y === s.food.y) {
-      s.score += 10;
+      s.score += 10 * level;
       setScore(s.score);
-      s.food = randFood(s.snake);
+      s.food = randFood(s.snake, obstacles, bombs);
+      
+      // Level up every 50 points
+      const newLevel = Math.floor(s.score / 50) + 1;
+      if (newLevel !== level) {
+        setLevel(newLevel);
+        // Increase speed (decrease interval) based on difficulty
+        const speedMap = { easy: 20, medium: 15, hard: 10 };
+        const speedDecrease = speedMap[difficulty] || 15;
+        setSpeed((prev) => Math.max(60, prev - speedDecrease));
+        
+        // Add obstacles after level 1 (2 obstacles per level)
+        if (newLevel > 1) {
+          const newObstacles = [...obstacles];
+          for (let i = 0; i < 2; i++) {
+            newObstacles.push(randObstacle(s.snake, s.food, newObstacles, bombs));
+          }
+          setObstacles(newObstacles);
+        }
+        
+        // Add bombs randomly (1 bomb every 2 levels after level 2)
+        if (newLevel >= 3 && newLevel % 2 === 0) {
+          const newBombs = [...bombs];
+          newBombs.push(randBomb(s.snake, s.food, obstacles, newBombs));
+          setBombs(newBombs);
+        }
+      }
     } else {
       s.snake.pop();
     }
 
     draw();
-  }, [draw]);
+  }, [draw, paused, level, difficulty, obstacles, bombs]);
 
   useEffect(() => {
     draw();
-    const id = setInterval(gameLoop, 120);
+    const id = setInterval(gameLoop, speed);
     return () => clearInterval(id);
-  }, [gameLoop, draw]);
+  }, [gameLoop, draw, speed]);
 
   useEffect(() => {
     const onKey = (e) => {
-      if (!started) setStarted(true);
+      const k = e.key;
+      
+      // Pause with Space or P
+      if ((k === " " || k === "p" || k === "P") && started && !gameOver) {
+        setPaused((prev) => !prev);
+        return;
+      }
+      
+      if (!started) {
+        setStarted(true);
+        setPaused(false);
+      }
+      
+      if (paused) return;
+      
       const s = stateRef.current;
       if (s.over) return;
 
-      const k = e.key;
-
-      if ((k === "ArrowUp" || k === "w") && s.dir.y === 0)
+      if ((k === "ArrowUp" || k === "w" || k === "W") && s.dir.y === 0)
         s.dir = { x: 0, y: -1 };
-      if ((k === "ArrowDown" || k === "s") && s.dir.y === 0)
+      if ((k === "ArrowDown" || k === "s" || k === "S") && s.dir.y === 0)
         s.dir = { x: 0, y: 1 };
-      if ((k === "ArrowLeft" || k === "a") && s.dir.x === 0)
+      if ((k === "ArrowLeft" || k === "a" || k === "A") && s.dir.x === 0)
         s.dir = { x: -1, y: 0 };
-      if ((k === "ArrowRight" || k === "d") && s.dir.x === 0)
+      if ((k === "ArrowRight" || k === "d" || k === "D") && s.dir.x === 0)
         s.dir = { x: 1, y: 0 };
     };
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [started]);
+  }, [started, paused, gameOver]);
 
   const reset = () => {
     stateRef.current = {
       snake: [{ x: 10, y: 10 }],
       dir: { x: 1, y: 0 },
-      food: randFood([{ x: 10, y: 10 }]),
+      food: randFood([{ x: 10, y: 10 }], [], []),
       score: 0,
       over: false,
     };
@@ -158,6 +302,15 @@ export default function Snake() {
     setScore(0);
     setGameOver(false);
     setStarted(false);
+    setPaused(false);
+    setLevel(1);
+    setObstacles([]);
+    setBombs([]);
+    
+    // Reset speed based on difficulty
+    const speedMap = { easy: 180, medium: 150, hard: 100 };
+    setSpeed(speedMap[difficulty] || 150);
+    
     draw();
   };
 
@@ -243,12 +396,52 @@ export default function Snake() {
         .hud {
           display:flex;
           justify-content:center;
-          gap:32px;
+          gap:24px;
           font-family: 'Share Tech Mono', monospace;
           font-size:12px;
           letter-spacing: 1px;
           color: rgba(232,232,224,0.6);
           margin-bottom:16px;
+          flex-wrap:wrap;
+        }
+
+        .controls-hint {
+          text-align:center;
+          font-family:'Share Tech Mono', monospace;
+          font-size:11px;
+          color:rgba(232,232,224,0.4);
+          margin-top:12px;
+        }
+
+        .difficulty-toggle {
+          display:flex;
+          gap:8px;
+          margin-bottom:16px;
+          justify-content:center;
+        }
+
+        .diff-btn {
+          padding:6px 14px;
+          border-radius:4px;
+          border:1px solid rgba(126,184,212,0.3);
+          background:transparent;
+          color:rgba(232,232,224,0.5);
+          font-family:'Share Tech Mono', monospace;
+          font-size:10px;
+          letter-spacing:1px;
+          cursor:pointer;
+          transition:all 0.2s;
+        }
+
+        .diff-btn.active {
+          background:rgba(126,184,212,0.15);
+          border-color:#7eb8d4;
+          color:#7eb8d4;
+        }
+
+        .diff-btn:hover {
+          background:rgba(126,184,212,0.08);
+          border-color:rgba(126,184,212,0.5);
         }
 
         .val {
@@ -326,9 +519,32 @@ export default function Snake() {
       <div className="snake-container">
         <div className="title">SNAKE <span>PROTOCOL</span></div>
 
+        <div className="difficulty-toggle">
+          <button 
+            className={`diff-btn ${difficulty === "easy" ? "active" : ""}`}
+            onClick={() => { setDifficulty("easy"); reset(); }}
+          >
+            EASY
+          </button>
+          <button 
+            className={`diff-btn ${difficulty === "medium" ? "active" : ""}`}
+            onClick={() => { setDifficulty("medium"); reset(); }}
+          >
+            MEDIUM
+          </button>
+          <button 
+            className={`diff-btn ${difficulty === "hard" ? "active" : ""}`}
+            onClick={() => { setDifficulty("hard"); reset(); }}
+          >
+            HARD
+          </button>
+        </div>
+
         <div className="hud">
           <div>SCORE: <span className="val">{score}</span></div>
           <div>HIGH: <span className="val">{highScore}</span></div>
+          <div>LEVEL: <span className="val">{level}</span></div>
+          <div>SPEED: <span className="val">{speed}ms</span></div>
         </div>
 
         <div className="arcade-frame" style={{ position: "relative" }}>
@@ -342,6 +558,7 @@ export default function Snake() {
             <div className="overlay">
               <h2>TERMINATED</h2>
               <p>FINAL SCORE: {score}</p>
+              <p style={{ color: "rgba(232,232,224,0.5)", fontSize: "12px" }}>LEVEL REACHED: {level}</p>
 
               <button className="btn" onClick={reset}>REBOOT</button>
               <button className="btn danger" onClick={submitScore}>
@@ -353,13 +570,31 @@ export default function Snake() {
             </div>
           )}
 
-          {!started && !gameOver && (
+          {paused && started && !gameOver && (
             <div className="overlay">
-              <p style={{ color: "rgba(232,232,224,0.5)" }}>
-                PRESS ANY KEY TO START
+              <p style={{ color: "rgba(126,184,212,0.8)", fontFamily: "'Orbitron', monospace", fontSize: "20px", letterSpacing: "3px", fontWeight: 700 }}>
+                PAUSED
+              </p>
+              <p style={{ color: "rgba(232,232,224,0.5)", fontFamily: "'Share Tech Mono', monospace", fontSize: "12px" }}>
+                PRESS SPACE TO RESUME
               </p>
             </div>
           )}
+
+          {!started && !gameOver && (
+            <div className="overlay">
+              <p style={{ color: "rgba(232,232,224,0.5)", fontFamily: "'Share Tech Mono', monospace", fontSize: "14px" }}>
+                PRESS ANY KEY TO START
+              </p>
+              <p style={{ color: "rgba(232,232,224,0.3)", fontFamily: "'Share Tech Mono', monospace", fontSize: "11px", marginTop: "8px" }}>
+                WASD or ARROW KEYS to move<br/>
+                SPACE to pause
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="controls-hint">
+          WASD / ARROWS to move | SPACE to pause
         </div>
       </div>
     </div>

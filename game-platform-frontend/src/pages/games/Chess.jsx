@@ -51,10 +51,13 @@ function getLegalMoves(board, r, c) {
   if (ch === "p") {
     const dir = white ? -1 : 1;
     const startRow = white ? 6 : 1;
+    // Single move
     if (inBounds(r + dir, c) && board[r + dir][c] === ".") {
       moves.push([r + dir, c]);
+      // Double move - must check BOTH squares are empty
       if (r === startRow && board[r + dir * 2][c] === ".") moves.push([r + dir * 2, c]);
     }
+    // Captures
     for (const dc of [-1, 1]) {
       const tr = r + dir, tc = c + dc;
       if (inBounds(tr, tc) && board[tr][tc] !== "." && !sameColor(p, board[tr][tc])) moves.push([tr, tc]);
@@ -111,14 +114,10 @@ function aiMove(board) {
     for (let c = 0; c < 8; c++)
       if (isBlack(board[r][c]))
         for (const [tr, tc] of getLegalMoves(board, r, c)) {
-          const next = cloneBoard(board);
-          next[tr][tc] = next[r][c]; next[r][c] = ".";
-          if (!isCheck(next, false)) moves.push({ from: [r, c], to: [tr, tc], capture: board[tr][tc] !== "." });
+          moves.push({ from: [r, c], to: [tr, tc] });
         }
+  
   if (moves.length === 0) return null;
-  moves.sort((a, b) => (b.capture ? 1 : 0) - (a.capture ? 1 : 0));
-  const captureMoves = moves.filter((m) => m.capture);
-  if (captureMoves.length > 0) return captureMoves[Math.floor(Math.random() * captureMoves.length)];
   return moves[Math.floor(Math.random() * moves.length)];
 }
 
@@ -132,6 +131,8 @@ export default function Chess() {
   const [gameOver, setGameOver] = useState(false);
   const [result, setResult] = useState(null);
   const [moves, setMoves] = useState(0);
+  const [gameMode, setGameMode] = useState("ai"); // "ai" or "2player"
+  const [lastAiMove, setLastAiMove] = useState(null); // Track AI move for highlighting
   const stateRef = useRef({ board: START.map((r) => r.split("")), over: false });
 
   const draw = useCallback(() => {
@@ -145,10 +146,32 @@ export default function Chess() {
         const dark = (r + c) % 2 === 1;
         ctx.fillStyle = dark ? "#111118" : "#1a1a24";
         ctx.fillRect(c * SIZE, r * SIZE, SIZE, SIZE);
+        
+        // Highlight selected piece
         if (selected && selected[0] === r && selected[1] === c) {
           ctx.fillStyle = "rgba(126,184,212,0.3)";
           ctx.fillRect(c * SIZE, r * SIZE, SIZE, SIZE);
         }
+        
+        // Highlight AI's last move
+        if (lastAiMove) {
+          const [fromR, fromC] = lastAiMove.from;
+          const [toR, toC] = lastAiMove.to;
+          if ((r === fromR && c === fromC) || (r === toR && c === toC)) {
+            ctx.fillStyle = "rgba(220,80,90,0.3)";
+            ctx.fillRect(c * SIZE, r * SIZE, SIZE, SIZE);
+            // Draw arrow indicator for the move
+            if (r === fromR && c === fromC) {
+              ctx.strokeStyle = "rgba(220,80,90,0.8)";
+              ctx.lineWidth = 3;
+              ctx.beginPath();
+              ctx.moveTo(c * SIZE + SIZE/2, r * SIZE + SIZE/2);
+              ctx.lineTo(toC * SIZE + SIZE/2, toR * SIZE + SIZE/2);
+              ctx.stroke();
+            }
+          }
+        }
+        
         // Highlight legal moves
         if (legalMoves.some(([tr, tc]) => tr === r && tc === c)) {
           ctx.fillStyle = s.board[r][c] !== "." 
@@ -177,13 +200,16 @@ export default function Chess() {
     ctx.strokeStyle = "rgba(126,184,212,0.3)";
     ctx.lineWidth = 2;
     ctx.strokeRect(0, 0, W, H);
-  }, [selected, legalMoves]);
+  }, [selected, legalMoves, lastAiMove]);
 
   useEffect(() => { draw(); }, [draw]);
 
   const doAi = useCallback(() => {
+    if (gameMode !== "ai") return;
+    
     const s = stateRef.current;
     const move = aiMove(s.board);
+    
     if (!move) {
       if (isCheck(s.board, false)) { setStatus("CHECKMATE // YOU WIN"); setResult("win"); }
       else { setStatus("STALEMATE // DRAW"); setResult("draw"); }
@@ -191,20 +217,47 @@ export default function Chess() {
     }
     const [fr, fc] = move.from, [tr, tc] = move.to;
     s.board[tr][tc] = s.board[fr][fc]; s.board[fr][fc] = ".";
+    
+    setLastAiMove({ from: [fr, fc], to: [tr, tc] });
+    
     if (isCheckmate(s.board, true)) { setStatus("CHECKMATE // YOU LOSE"); setResult("loss"); s.over = true; setGameOver(true); return; }
     if (isCheck(s.board, true)) setStatus("CHECK! YOUR TURN");
     else setStatus("YOUR TURN");
     setTurn("white");
     draw();
-  }, [draw]);
+  }, [gameMode]);
+
+  // Trigger AI when turn changes to black in AI mode
+  useEffect(() => {
+    if (gameMode === "ai" && turn === "black" && !gameOver) {
+      const timer = setTimeout(() => {
+        doAi();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [turn, gameMode, gameOver, doAi]);
 
   const handleClick = (e) => {
     const s = stateRef.current;
-    if (s.over || turn !== "white") return;
+    if (s.over) return;
+    
+    // In AI mode, only allow white to play
+    // In 2-player mode, allow current turn player to play
+    const isWhiteTurn = turn === "white";
+    if (gameMode === "ai" && !isWhiteTurn) return;
+    
     const rect = canvasRef.current.getBoundingClientRect();
     const c = Math.floor((e.clientX - rect.left) / SIZE);
     const r = Math.floor((e.clientY - rect.top) / SIZE);
     if (!inBounds(r, c)) return;
+
+    // Clear AI move highlight when player makes a move
+    setLastAiMove(null);
+
+    // Check if clicking on own piece
+    const clickedPiece = s.board[r][c];
+    const isOwnPiece = clickedPiece !== "." && 
+                       (isWhiteTurn ? isWhite(clickedPiece) : isBlack(clickedPiece));
 
     if (selected) {
       const [sr, sc] = selected;
@@ -212,28 +265,49 @@ export default function Chess() {
       if (legal.some(([tr, tc]) => tr === r && tc === c)) {
         const next = cloneBoard(s.board);
         next[r][c] = next[sr][sc]; next[sr][sc] = ".";
-        if (!isCheck(next, true)) {
+        const currentColor = isWhiteTurn;
+        
+        if (!isCheck(next, currentColor)) {
           s.board = next;
           setSelected(null);
           setLegalMoves([]);
           setMoves((m) => m + 1);
-          if (isCheckmate(s.board, false)) { setStatus("CHECKMATE // YOU WIN"); setResult("win"); s.over = true; setGameOver(true); draw(); return; }
-          if (isCheck(s.board, false)) setStatus("AI IN CHECK");
-          else setStatus("AI THINKING...");
-          setTurn("black");
+          
+          const nextTurn = currentColor ? "black" : "white";
+          const opponentColor = !currentColor;
+          
+          // Check for checkmate/check on opponent
+          if (isCheckmate(s.board, opponentColor)) {
+            const winner = currentColor ? "white" : "black";
+            if (gameMode === "ai") {
+              setStatus(winner === "white" ? "CHECKMATE // YOU WIN" : "CHECKMATE // YOU LOSE");
+              setResult(winner === "white" ? "win" : "loss");
+            } else {
+              setStatus(`CHECKMATE // ${winner.toUpperCase()} WINS`);
+              setResult(winner === "white" ? "white" : "black");
+            }
+            s.over = true; setGameOver(true); draw(); return;
+          }
+          
+          if (isCheck(s.board, opponentColor)) {
+            setStatus("CHECK!");
+          } else {
+            setStatus(gameMode === "ai" ? (currentColor ? "AI THINKING..." : "YOUR TURN") : `${nextTurn.toUpperCase()}'S TURN`);
+          }
+          
+          setTurn(nextTurn);
           draw();
-          setTimeout(doAi, 600);
           return;
         }
       }
       setSelected(null);
       setLegalMoves([]);
-      if (isWhite(s.board[r][c])) {
+      if (isOwnPiece) {
         setSelected([r, c]);
         setLegalMoves(getLegalMoves(s.board, r, c));
       }
     } else {
-      if (isWhite(s.board[r][c])) {
+      if (isOwnPiece) {
         setSelected([r, c]);
         setLegalMoves(getLegalMoves(s.board, r, c));
       }
@@ -243,7 +317,10 @@ export default function Chess() {
 
   const reset = () => {
     stateRef.current = { board: START.map((r) => r.split("")), over: false };
-    setSelected(null); setLegalMoves([]); setTurn("white"); setStatus("YOUR TURN"); setGameOver(false); setResult(null); setMoves(0);
+    setSelected(null); setLegalMoves([]); setTurn("white"); 
+    setStatus(gameMode === "ai" ? "YOUR TURN" : "WHITE'S TURN"); 
+    setGameOver(false); setResult(null); setMoves(0);
+    setLastAiMove(null);
     draw();
   };
 
@@ -285,6 +362,10 @@ export default function Chess() {
         .chess-hud { display:flex; gap:28px; align-items:center; margin-bottom:16px; }
         .chess-hud-item { font-family:'Share Tech Mono', monospace; font-size:12px; letter-spacing:1px; color:rgba(232,232,224,0.6); }
         .chess-hud-val { color:#d4a84b; font-weight:700; }
+        .chess-mode-toggle { display:flex; gap:8px; margin-bottom:16px; justify-content:center; }
+        .chess-mode-btn { padding:8px 16px; border-radius:6px; border:1px solid rgba(126,184,212,0.3); background:transparent; color:rgba(232,232,224,0.5); font-family:'Share Tech Mono', monospace; font-size:11px; letter-spacing:1px; cursor:pointer; transition:all 0.2s; }
+        .chess-mode-btn.active { background:rgba(126,184,212,0.15); border-color:#7eb8d4; color:#7eb8d4; }
+        .chess-mode-btn:hover { background:rgba(126,184,212,0.08); border-color:rgba(126,184,212,0.5); }
         .chess-canvas { border:1px solid rgba(126,184,212,0.3); border-radius:12px; box-shadow:0 0 60px rgba(126,184,212,0.15), inset 0 0 30px rgba(0,0,0,0.5); background: rgba(8,10,14,0.85); padding: 16px; backdrop-filter: blur(10px); cursor:pointer; }
         .chess-over { position:absolute; inset:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(8,10,14,0.95); border-radius:8px; gap:16px; backdrop-filter: blur(10px); }
         .chess-btn { padding:12px 28px; border-radius:6px; border:1px solid rgba(126,184,212,0.3); background:linear-gradient(90deg, rgba(126,184,212,0.15), rgba(126,184,212,0.05)); color:#7eb8d4; font-family:'Orbitron', monospace; font-size:11px; letter-spacing:2px; text-transform:uppercase; font-weight:700; cursor:pointer; transition:all 0.2s; }
@@ -296,7 +377,22 @@ export default function Chess() {
       <div className="chess-wrapper">
         <div style={{ textAlign: "center" }}>
           <h1 style={{ fontFamily: "'Orbitron', monospace", fontSize: "24px", letterSpacing: "4px", color: "#7eb8d4", margin: 0, textShadow: "0 0 30px rgba(126,184,212,0.4)", fontWeight: 900 }}>CHESS <span style={{ color: "#d4a84b" }}>PROTOCOL</span></h1>
-          <p style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "11px", letterSpacing: "2px", color: "rgba(232,232,224,0.5)", margin: "8px 0 0" }}>WHITE VS AI // CLICK PIECE THEN DESTINATION</p>
+          <p style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "11px", letterSpacing: "2px", color: "rgba(232,232,224,0.5)", margin: "8px 0 0" }}>{gameMode === "ai" ? "WHITE VS ROBOT" : "WHITE VS BLACK"} // CLICK PIECE THEN DESTINATION</p>
+        </div>
+
+        <div className="chess-mode-toggle">
+          <button 
+            className={`chess-mode-btn ${gameMode === "ai" ? "active" : ""}`}
+            onClick={() => { setGameMode("ai"); reset(); }}
+          >
+            VS ROBOT
+          </button>
+          <button 
+            className={`chess-mode-btn ${gameMode === "2player" ? "active" : ""}`}
+            onClick={() => { setGameMode("2player"); reset(); }}
+          >
+            2 PLAYER
+          </button>
         </div>
 
         <div className="chess-hud">
@@ -308,8 +404,16 @@ export default function Chess() {
           <canvas ref={canvasRef} width={W} height={H} className="chess-canvas" onClick={handleClick} />
           {gameOver && (
             <div className="chess-over">
-              <p style={{ fontFamily: "'Orbitron', monospace", fontSize: "28px", color: result === "win" ? "#7eb8d4" : result === "draw" ? "#e8e8e0" : "#dc505a", letterSpacing: "3px", margin: 0, fontWeight: 900, textShadow: result === "win" ? "0 0 30px rgba(126,184,212,0.5)" : result === "draw" ? "none" : "0 0 30px rgba(220,80,90,0.5)" }}>{result === "win" ? "VICTORY" : result === "draw" ? "STALEMATE" : "DEFEAT"}</p>
-              <p style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "14px", color: "rgba(232,232,224,0.7)", margin: 0 }}>MOVES: {moves}</p>
+              <p style={{ fontFamily: "'Orbitron', monospace", fontSize: "28px", color: result === "win" ? "#7eb8d4" : result === "draw" ? "#e8e8e0" : "#dc505a", letterSpacing: "3px", margin: 0, fontWeight: 900, textShadow: result === "win" ? "0 0 30px rgba(126,184,212,0.5)" : result === "draw" ? "none" : "0 0 30px rgba(220,80,90,0.5)" }}>
+                {result === "win" ? "WHITE WINS" : result === "loss" ? "BLACK WINS" : "DRAW"}
+              </p>
+              <p style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "14px", color: "rgba(232,232,224,0.7)", margin: 0 }}>
+                {gameMode === "ai" 
+                  ? (result === "win" ? "YOU DEFEATED THE ROBOT" : result === "loss" ? "ROBOT DEFEATED YOU" : "STALEMATE")
+                  : (result === "white" ? "WHITE PLAYER WINS" : result === "black" ? "BLACK PLAYER WINS" : "STALEMATE")
+                }
+              </p>
+              <p style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "12px", color: "rgba(232,232,224,0.5)", margin: "8px 0 0" }}>MOVES: {moves}</p>
               <div style={{ display: "flex", gap: "12px" }}>
                 <button className="chess-btn" onClick={reset}>REBOOT</button>
                 <button className="chess-btn danger" onClick={submitScore}>UPLOAD //</button>

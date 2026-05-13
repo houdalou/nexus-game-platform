@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+
+// Entity representing a quiz session for a user
 @Entity
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor

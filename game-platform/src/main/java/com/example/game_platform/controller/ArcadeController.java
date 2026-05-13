@@ -11,10 +11,12 @@ public class ArcadeController {
 
     private final ScoreService scoreService;
 
+    // Constructor to inject ScoreService dependency
     public ArcadeController(ScoreService scoreService) {
         this.scoreService = scoreService;
     }
 
+    // Submit arcade game score for the authenticated user
     @PostMapping("/score")
     public Score submitScore(
             @RequestParam int points,

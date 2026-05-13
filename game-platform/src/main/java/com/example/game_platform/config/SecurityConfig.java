@@ -18,6 +18,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+// Security configuration for JWT authentication and authorization
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -25,30 +26,33 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
 
+    // Constructor to inject JWT authentication filter
     public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
     }
 
+    // Configure security filter chain for HTTP requests
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-                // CORS
+                // CORS configuration
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // CSRF OFF (REST API)
+                // Disable CSRF for REST API
                 .csrf(csrf -> csrf.disable())
 
-                // IMPORTANT for JWT APIs
+                // Set session management to stateless for JWT
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
+                // Disable frame options for H2 console
                 .headers(headers -> headers.frameOptions(frame -> frame.disable()))
 
                 .authorizeHttpRequests(auth -> auth
 
-                        // PUBLIC
+                        // Public endpoints
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/api/stats/global").permitAll()
@@ -58,23 +62,24 @@ public class SecurityConfig {
                         .requestMatchers("/api/scores/**").permitAll()
                         .requestMatchers("/api/arcade/**").authenticated()
 
-                        // USER PROFILE (must be logged in)
+                        // User profile endpoints require authentication
                         .requestMatchers("/api/users/me").authenticated()
 
-                        // ADMIN ONLY
+                        // Admin only endpoints
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                        // everything else
+                        // All other requests require authentication
                         .anyRequest().authenticated()
                 )
 
-                // JWT FILTER
+                // Add JWT filter before username password authentication filter
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
+    // Configure CORS settings for cross-origin requests
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
@@ -91,6 +96,7 @@ public class SecurityConfig {
         return source;
     }
 
+    // Password encoder bean for hashing passwords
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

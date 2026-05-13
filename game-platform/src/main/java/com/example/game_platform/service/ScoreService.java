@@ -15,40 +15,41 @@ public class ScoreService {
     private final ScoreRepository scoreRepo;
     private final UserRepository userRepo;
 
+    // Constructor to inject dependencies
     public ScoreService(ScoreRepository scoreRepo, UserRepository userRepo) {
         this.scoreRepo = scoreRepo;
         this.userRepo = userRepo;
     }
 
-    // 🎮 MAIN GAME METHOD
+    // Main game score saving method with difficulty
     @Transactional
     public Score saveScore(String username, int points, DifficultyLevel difficulty) {
 
         User user = userRepo.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 🧠 safety init (only needed if DB has old nulls)
+        // Initialize user stats if null (safety check for old data)
         if (user.getTotalScore() == null) user.setTotalScore(0);
         if (user.getXp() == null) user.setXp(0);
         if (user.getLevel() == null) user.setLevel(1);
 
-        // 🏆 1. SESSION SCORE (quiz result)
+        // Update total score
         user.setTotalScore(user.getTotalScore() + points);
 
-        // ⚡ 2. XP SYSTEM (progression)
+        // Calculate and add XP based on difficulty
         int xpGained = calculateXp(difficulty);
         user.setXp(user.getXp() + xpGained);
 
-        // 📈 3. LEVEL SYSTEM
+        // Update level based on XP
         user.setLevel(calculateLevel(user.getXp()));
 
-        // 🏅 4. BADGE SYSTEM (based on XP)
+        // Update badge based on XP
         user.setBadge(calculateBadge(user.getXp()));
 
-        // 💾 save user updates
+        // Save user updates
         userRepo.save(user);
 
-        // 📊 5. SCORE HISTORY (for leaderboard/history)
+        // Create and save score record for history
         Score score = new Score();
         score.setPoints(points);
         score.setUser(user);
@@ -56,7 +57,7 @@ public class ScoreService {
         return scoreRepo.save(score);
     }
 
-    // ⚡ XP RULES
+    // Calculate XP based on difficulty level
     private int calculateXp(DifficultyLevel difficulty) {
         return switch (difficulty) {
             case EASY -> 10;
@@ -65,12 +66,12 @@ public class ScoreService {
         };
     }
 
-    // 📈 LEVEL SYSTEM
+    // Calculate level based on XP
     private int calculateLevel(int xp) {
         return (xp / 100) + 1;
     }
 
-    // 🏅 BADGE SYSTEM
+    // Calculate badge based on XP
     private String calculateBadge(int xp) {
 
         if (xp >= 1000) return "DIAMOND";
@@ -80,7 +81,7 @@ public class ScoreService {
         return "BRONZE";
     }
 
-    // 🏆 LEADERBOARD (GLOBAL)
+    // Get top scores for leaderboard
     public List<LeaderboardEntryDTO> getTopScores() {
         return userRepo.findTop10ByOrderByTotalScoreDesc()
                 .stream()
@@ -97,11 +98,12 @@ public class ScoreService {
                 .toList();
     }
 
+    // Save score with default medium difficulty
     public Score saveScore(String username, int points) {
         return saveScore(username, points, DifficultyLevel.MEDIUM);
     }
 
-    // 🕹️ ARCADE / CHESS SCORE
+    // Save arcade game score (chess, snake, etc.)
     @Transactional
     public Score saveArcadeScore(String username, int points, String gameType) {
         User user = userRepo.findByUsername(username)

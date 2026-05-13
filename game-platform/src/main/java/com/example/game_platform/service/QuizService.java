@@ -15,6 +15,7 @@ public class QuizService {
     private final UserRepository userRepo;
     private final ScoreService scoreService;
 
+    // Constructor to inject dependencies
     public QuizService(QuestionRepository questionRepo,
                        QuizSessionRepository sessionRepo,
                        UserRepository userRepo,
@@ -25,7 +26,7 @@ public class QuizService {
         this.scoreService = scoreService;
     }
 
-    // 🚀 START QUIZ BY DIFFICULTY LEVEL
+    // Start a new quiz session with specified difficulty
     public Map<String, Object> startQuiz(String difficulty, String username) {
         User user = userRepo.findByUsername(username).orElseThrow();
         List<Question> questions = questionRepo.findByDifficulty(difficulty);
@@ -44,7 +45,8 @@ public class QuizService {
                 "difficulty", difficulty
         );
     }
-    // 🏁 END QUIZ
+
+    // End a quiz session and record results
     public QuizSession endQuiz(Long sessionId, int correctAnswers, int timeLeft) {
 
         QuizSession session = sessionRepo.findById(sessionId)

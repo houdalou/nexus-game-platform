@@ -12,10 +12,12 @@ public class StatsController {
 
     private final StatsService statsService;
 
+    // Constructor to inject StatsService dependency
     public StatsController(StatsService statsService) {
         this.statsService = statsService;
     }
 
+    // Get global platform statistics
     @GetMapping("/global")
     public GlobalStatsDTO getGlobalStats() {
         return statsService.getGlobalStats();

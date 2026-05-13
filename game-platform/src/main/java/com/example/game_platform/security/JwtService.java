@@ -8,13 +8,14 @@ import org.springframework.stereotype.Service;
 import java.security.Key;
 import java.util.Date;
 
+// Service for JWT token generation, validation, and extraction
 @Service
 public class JwtService {
 
     private final String SECRET = "mysecretkeymysecretkeymysecretkey123456";
     private final Key key = Keys.hmacShaKeyFor(SECRET.getBytes());
 
-    // ================= GENERATE TOKEN =================
+    // Generate JWT token with username and role
     public String generateToken(String username, String role) {
         return Jwts.builder()
                 .setSubject(username)
@@ -25,7 +26,7 @@ public class JwtService {
                 .compact();
     }
 
-    // ================= EXTRACT USERNAME =================
+    // Extract username from JWT token
     public String extractUsername(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(key)
@@ -35,7 +36,7 @@ public class JwtService {
                 .getSubject();
     }
 
-    // ================= EXTRACT ROLE =================
+    // Extract role from JWT token
     public String extractRole(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(key)
@@ -45,7 +46,7 @@ public class JwtService {
                 .get("role", String.class);
     }
 
-    // ================= STRONG VALIDATION (IMPORTANT FIX) =================
+    // Validate JWT token against user details
     public boolean validateToken(String token, UserDetails userDetails) {
         try {
             String username = extractUsername(token);
@@ -58,11 +59,12 @@ public class JwtService {
         }
     }
 
-    // ================= EXPIRATION CHECK =================
+    // Check if token is expired
     private boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
 
+    // Extract expiration date from JWT token
     private Date extractExpiration(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(key)

@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+// Entity representing an audit log entry for admin actions
 @Entity
 @Getter
 @Setter
@@ -32,6 +33,7 @@ public class AuditLog {
     @Column(nullable = false)
     private LocalDateTime timestamp;
 
+    // Set timestamp to current time before persisting
     @PrePersist
     protected void onCreate() {
         timestamp = LocalDateTime.now();

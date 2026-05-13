@@ -17,13 +17,14 @@ public class AuthService {
     private final PasswordEncoder encoder;
     private final JwtService jwtService;
 
+    // Constructor to inject dependencies
     public AuthService(UserRepository repo, PasswordEncoder encoder, JwtService jwtService) {
         this.repo = repo;
         this.encoder = encoder;
         this.jwtService = jwtService;
     }
 
-    // ================= REGISTER =================
+    // Register a new user account
     public AuthResponse register(RegisterRequest request) {
 
         if (repo.findByUsername(request.getUsername()).isPresent()) {
@@ -47,7 +48,7 @@ public class AuthService {
         return new AuthResponse(null, "User registered successfully");
     }
 
-    // ================= LOGIN =================
+    // Authenticate user and return JWT token
     public AuthResponse login(LoginRequest request) {
 
         User user = repo.findByUsername(request.getUsername())
@@ -62,7 +63,12 @@ public class AuthService {
             return new AuthResponse(null, "Wrong password");
         }
 
-        // ✅ pass both username and role
+        // Check if user is banned
+        if (Boolean.TRUE.equals(user.getBanned())) {
+            return new AuthResponse(null, "Your account is banned");
+        }
+
+        // Generate JWT token with username and role
         String token = jwtService.generateToken(
                 user.getUsername(),
                 user.getRole().name()

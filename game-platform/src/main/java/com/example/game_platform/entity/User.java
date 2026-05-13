@@ -44,11 +44,12 @@ public class User implements UserDetails {
     @Builder.Default
     private Boolean banned = false;
 
+    // Get rank alias for badge
     public String getRank() {
         return badge;
     }
 
-    // 🔥 CRITICAL FIX FOR SPRING SECURITY
+    // Get user authorities for Spring Security
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(
@@ -56,23 +57,29 @@ public class User implements UserDetails {
         );
     }
 
+    // Check if account is not expired
     @Override
     public boolean isAccountNonExpired() { return true; }
 
+    // Check if account is not locked (based on banned status)
     @Override
     public boolean isAccountNonLocked() { return !Boolean.TRUE.equals(banned); }
 
+    // Check if credentials are not expired
     @Override
     public boolean isCredentialsNonExpired() { return true; }
 
+    // Check if account is enabled (based on banned status)
     @Override
     public boolean isEnabled() { return !Boolean.TRUE.equals(banned); }
 
+    // Get user password for authentication
     @Override
     public String getPassword() {
         return password;
     }
 
+    // Get username for authentication
     @Override
     public String getUsername() {
         return username;

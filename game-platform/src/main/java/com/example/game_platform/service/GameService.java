@@ -13,11 +13,13 @@ public class GameService {
     private final GameRepository repo;
     private final AuditLogService auditLogService;
 
+    // Constructor to inject dependencies
     public GameService(GameRepository repo, AuditLogService auditLogService) {
         this.repo = repo;
         this.auditLogService = auditLogService;
     }
 
+    // Map Game entity to GameDTO
     private GameDTO mapToDTO(Game game) {
         return GameDTO.builder()
                 .id(game.getId())
@@ -32,6 +34,7 @@ public class GameService {
                 .build();
     }
 
+    // Get all games (including disabled)
     public List<GameDTO> getAllGames() {
         return repo.findAll()
                 .stream()
@@ -39,6 +42,7 @@ public class GameService {
                 .toList();
     }
 
+    // Get only enabled games
     public List<GameDTO> getEnabledGames() {
         return repo.findAll()
                 .stream()
@@ -47,12 +51,14 @@ public class GameService {
                 .toList();
     }
 
+    // Get game by ID
     public GameDTO getById(Long id) {
         Game game = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Game not found"));
         return mapToDTO(game);
     }
 
+    // Create new game (admin only)
     public GameDTO create(GameDTO dto, String adminUsername) {
         Game game = new Game();
         applyFromDTO(game, dto);
@@ -61,6 +67,7 @@ public class GameService {
         return mapToDTO(saved);
     }
 
+    // Update game by ID (admin only)
     public GameDTO update(Long id, GameDTO dto, String adminUsername) {
         Game existing = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Game not found"));
@@ -70,6 +77,7 @@ public class GameService {
         return mapToDTO(saved);
     }
 
+    // Delete game by ID (admin only)
     public void delete(Long id, String adminUsername) {
         if (!repo.existsById(id)) {
             throw new RuntimeException("Game not found");
@@ -80,6 +88,7 @@ public class GameService {
         auditLogService.logAction(adminUsername, "GAME_DELETED", title, "Admin deleted game");
     }
 
+    // Toggle game enabled/disabled status (admin only)
     public GameDTO toggleEnabled(Long id, String adminUsername) {
         Game game = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Game not found"));
@@ -90,6 +99,7 @@ public class GameService {
         return mapToDTO(saved);
     }
 
+    // Apply DTO values to game entity
     private void applyFromDTO(Game game, GameDTO dto) {
         game.setTitle(dto.getTitle());
         game.setDescription(dto.getDescription());

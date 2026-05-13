@@ -14,17 +14,20 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+// JWT authentication filter to validate tokens on each request
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
 
+    // Constructor to inject JWT service and user details service
     public JwtAuthFilter(JwtService jwtService, CustomUserDetailsService userDetailsService) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
     }
 
+    // Filter method to process JWT authentication for each request
     @Override
     protected void doFilterInternal(
             jakarta.servlet.http.HttpServletRequest request,
@@ -34,7 +37,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
-        // ❌ No token → continue filter chain
+        // No token present, continue filter chain
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -45,12 +48,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             String username = jwtService.extractUsername(token);
 
-            // 🔥 only authenticate if not already authenticated
+            // Only authenticate if not already authenticated
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-                // ✅ STRONG validation (IMPORTANT FIX)
+                // Validate token against user details
                 if (jwtService.validateToken(token, userDetails)) {
 
                     UsernamePasswordAuthenticationToken authToken =
@@ -69,7 +72,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
 
         } catch (Exception e) {
-            // ❗ clear context to avoid partial auth states
+            // Clear context to avoid partial auth states
             SecurityContextHolder.clearContext();
             System.out.println("JWT error: " + e.getMessage());
         }

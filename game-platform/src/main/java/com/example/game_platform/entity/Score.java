@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
+// Entity representing a user's score for a game
 @Entity
 @Getter
 @Setter

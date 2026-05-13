@@ -5,6 +5,7 @@ import lombok.*;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import java.util.List;
 
+// Entity representing a quiz question
 @Entity
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor

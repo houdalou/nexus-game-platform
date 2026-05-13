@@ -14,11 +14,12 @@ public class ScoreController {
 
     private final ScoreService service;
 
+    // Constructor to inject ScoreService dependency
     public ScoreController(ScoreService service) {
         this.service = service;
     }
 
-    // 🏆 SAVE SCORE (FROM JWT USER)
+    // Save score for the authenticated user
     @PostMapping
     public Score save(
             @RequestParam int points,
@@ -28,7 +29,7 @@ public class ScoreController {
         return service.saveScore(username, points);
     }
 
-    // 🏆 LEADERBOARD
+    // Get leaderboard with top scores
     @GetMapping("/leaderboard")
     public List<LeaderboardEntryDTO> leaderboard() {
         return service.getTopScores();

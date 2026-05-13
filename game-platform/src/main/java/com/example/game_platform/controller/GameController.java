@@ -14,45 +14,46 @@ public class GameController {
 
     private final GameService service;
 
+    // Constructor to inject GameService dependency
     public GameController(GameService service) {
         this.service = service;
     }
 
-    // 🎮 PUBLIC - GET ALL ENABLED GAMES
+    // Get all enabled games (public endpoint)
     @GetMapping
     public List<GameDTO> getAll() {
         return service.getEnabledGames();
     }
 
-    // 🎮 ADMIN - GET ALL GAMES (including disabled)
+    // Get all games including disabled ones (admin only)
     @GetMapping("/admin")
     @PreAuthorize("hasRole('ADMIN')")
     public List<GameDTO> getAllForAdmin() {
         return service.getAllGames();
     }
 
-    // ➕ ADMIN ONLY - ADD GAME
+    // Add new game (admin only)
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public GameDTO add(@RequestBody GameDTO dto, Authentication auth) {
         return service.create(dto, auth.getName());
     }
 
-    // ✏️ ADMIN ONLY - UPDATE GAME
+    // Update game by ID (admin only)
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public GameDTO update(@PathVariable Long id, @RequestBody GameDTO dto, Authentication auth) {
         return service.update(id, dto, auth.getName());
     }
 
-    // ❌ ADMIN ONLY - DELETE GAME
+    // Delete game by ID (admin only)
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public void delete(@PathVariable Long id, Authentication auth) {
         service.delete(id, auth.getName());
     }
 
-    // 🔘 ADMIN ONLY - TOGGLE ENABLED
+    // Toggle game enabled/disabled status (admin only)
     @PutMapping("/{id}/toggle")
     @PreAuthorize("hasRole('ADMIN')")
     public GameDTO toggle(@PathVariable Long id, Authentication auth) {

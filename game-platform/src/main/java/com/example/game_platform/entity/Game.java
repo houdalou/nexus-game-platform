@@ -3,6 +3,7 @@ package com.example.game_platform.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+// Entity representing a game in the platform
 @Entity
 @Getter
 @Setter

@@ -26,6 +26,24 @@ export default function Login() {
     try {
       const res = await api.post("/auth/login", form);
 
+      // Check if user is banned (backend returns error for banned users)
+      if (res.data?.message && res.data.message.toLowerCase().includes("banned")) {
+        setStatus({
+          type: "error",
+          msg: "YOUR ACCOUNT IS BANNED",
+        });
+        return;
+      }
+
+      // Check if user is banned field
+      if (res.data?.banned) {
+        setStatus({
+          type: "error",
+          msg: "YOUR ACCOUNT IS BANNED",
+        });
+        return;
+      }
+
       const token =
         res.data?.token ||
         res.data?.jwt ||
@@ -40,10 +58,18 @@ export default function Login() {
 
       setTimeout(() => navigate("/dashboard"), 800);
     } catch (err) {
-      setStatus({
-        type: "error",
-        msg: err.response?.data?.message || "AUTH FAILED",
-      });
+      const errorMsg = err.response?.data?.message || "AUTH FAILED";
+      if (errorMsg.toLowerCase().includes("banned") || err.response?.status === 403) {
+        setStatus({
+          type: "error",
+          msg: "YOUR ACCOUNT IS BANNED",
+        });
+      } else {
+        setStatus({
+          type: "error",
+          msg: errorMsg,
+        });
+      }
     } finally {
       setLoading(false);
     }
