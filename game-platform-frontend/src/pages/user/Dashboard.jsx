@@ -92,7 +92,7 @@ export default function Dashboard() {
   const fetchFavorites = async () => {
     try { 
       const r = await api.get("/favorites"); 
-      setFavorites(r.data || []);
+      setFavorites((r.data || []).filter(f => f.game));
     } catch (e) { console.error(e); }
   };
   const fetchRatings = async () => {
@@ -100,7 +100,9 @@ export default function Dashboard() {
       const r = await api.get("/ratings"); 
       const userRatings = {};
       (r.data || []).forEach(rating => {
-        userRatings[rating.game.id] = rating.rating;
+        if (rating?.game?.id) {
+          userRatings[rating.game.id] = rating.rating;
+        }
       });
       setRatings(userRatings);
     } catch (e) { console.error(e); }
@@ -114,16 +116,20 @@ export default function Dashboard() {
 
   const toggleFavorite = async (gameId) => {
     try {
-      const isFav = favorites.some(f => f.game.id === gameId);
+      const isFav = isGameFavorited(gameId);
       if (isFav) {
         await api.delete(`/favorites/${gameId}`);
-        setFavorites(prev => prev.filter(f => f.game.id !== gameId));
+        setFavorites(prev => Array.isArray(prev) ? prev.filter(f => f?.game && f.game.id !== gameId) : []);
       } else {
         await api.post(`/favorites/${gameId}`);
-        const game = games.find(g => g.id === gameId);
-        if (game) setFavorites(prev => [...prev, { game }]);
+        await fetchFavorites();
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error('Error toggling favorite:', e);
+      if (e.response?.status === 400 || e.message?.includes('Already in favorites')) {
+        await fetchFavorites();
+      }
+    }
   };
 
   const addRating = async (gameId, rating) => {
@@ -137,7 +143,7 @@ export default function Dashboard() {
   const fetchComments = async (gameId) => {
     try {
       const r = await api.get(`/comments/game/${gameId}`);
-      setComments(prev => ({ ...prev, [gameId]: r.data || [] }));
+      setComments(prev => ({ ...prev, [gameId]: (r.data || []).filter(c => c && c.id) }));
     } catch (e) { console.error(e); }
   };
 
@@ -154,7 +160,10 @@ export default function Dashboard() {
   const deleteComment = async (commentId, gameId) => {
     try {
       await api.delete(`/comments/${commentId}`);
-      setComments(prev => ({ ...prev, [gameId]: prev[gameId].filter(c => c.id !== commentId) }));
+      setComments(prev => ({ 
+        ...prev, 
+        [gameId]: (prev[gameId] || []).filter(c => c && c.id !== commentId) 
+      }));
     } catch (e) { console.error(e); }
   };
 
@@ -166,6 +175,16 @@ export default function Dashboard() {
   };
 
   const logout = () => { localStorage.removeItem("token"); navigate("/login"); };
+
+  const isGameFavorited = (gameId) => {
+    try {
+      if (!Array.isArray(favorites)) return false;
+      return favorites.some(f => f?.game && typeof f.game.id === 'number' && f.game.id === gameId);
+    } catch (e) {
+      console.error('Error checking favorite status:', e);
+      return false;
+    }
+  };
 
   const handlePlay = (game) => {
     const cat  = game.category?.toUpperCase();
@@ -864,10 +883,10 @@ export default function Dashboard() {
                           <div className="nx-game-desc">{game.description}</div>
                           <div className="nx-game-actions">
                             <button
-                              className={`nx-fav-btn ${favorites.some(f => f.game.id === game.id) ? "active" : ""}`}
+                              className={`nx-fav-btn ${isGameFavorited(game.id) ? "active" : ""}`}
                               onClick={e => { e.stopPropagation(); toggleFavorite(game.id); }}
                             >
-                              <Heart size={16} fill={favorites.some(f => f.game.id === game.id) ? "currentColor" : "none"} />
+                              <Heart size={16} fill={isGameFavorited(game.id) ? "currentColor" : "none"} />
                             </button>
                             <div className="nx-rating-stars">
                               {[1,2,3,4,5].map(star => (
@@ -902,11 +921,11 @@ export default function Dashboard() {
                               >Post</button>
                             </div>
                             <div className="nx-comment-list">
-                              {(comments[game.id] || []).map(comment => (
+                              {(comments[game.id] || []).filter(c => c && c.id).map(comment => (
                                 <div key={comment.id} className="nx-comment-item">
                                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                    <div className="nx-comment-user">{comment.user.username}</div>
-                                    {comment.user.username === user?.username && (
+                                    <div className="nx-comment-user">{comment.user?.username || "Unknown"}</div>
+                                    {comment.user?.username === user?.username && (
                                       <span
                                         className="nx-comment-delete"
                                         onClick={e => { e.stopPropagation(); deleteComment(comment.id, game.id); }}
@@ -915,7 +934,7 @@ export default function Dashboard() {
                                   </div>
                                   <div className="nx-comment-text">{comment.content}</div>
                                   <div className="nx-comment-date">
-                                    {new Date(comment.createdAt).toLocaleDateString()}
+                                    {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : ""}
                                   </div>
                                 </div>
                               ))}

@@ -74,17 +74,17 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     // Get all comments for a game ordered by creation date descending
     // Without Spring: Would need manual SQL: SELECT * FROM comments WHERE game_id = ? ORDER BY created_at DESC
-    List<Comment> findByGame_GameIdOrderByCreatedAtDesc(Long gameId);
+    List<Comment> findByGame_IdOrderByCreatedAtDesc(Long gameId);
 
     // Get all comments for a user
     // Without Spring: Would need manual SQL: SELECT * FROM comments WHERE user_id = ?
-    List<Comment> findByUser_UserId(Long userId);
+    List<Comment> findByUser_Id(Long userId);
 
     // Count comments for a game
     // Without Spring: Would need manual SQL: SELECT COUNT(*) FROM comments WHERE game_id = ?
-    long countByGame_GameId(Long gameId);
+    long countByGame_Id(Long gameId);
 
     // Delete all comments for a game
     // Without Spring: Would need manual SQL: DELETE FROM comments WHERE game_id = ?
-    void deleteByGame_GameId(Long gameId);
+    void deleteByGame_Id(Long gameId);
 }

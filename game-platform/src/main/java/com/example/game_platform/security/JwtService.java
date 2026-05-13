@@ -8,50 +8,41 @@ import org.springframework.stereotype.Service;
 import java.security.Key;
 import java.util.Date;
 
-// Service for JWT token generation, validation, and extraction
 @Service
 public class JwtService {
 
     private final String SECRET = "mysecretkeymysecretkeymysecretkey123456";
     private final Key key = Keys.hmacShaKeyFor(SECRET.getBytes());
 
-    // Generate JWT token with username and role
+    // Generate token
     public String generateToken(String username, String role) {
         return Jwts.builder()
                 .setSubject(username)
-                .claim("role", role) // store "ADMIN" not "ROLE_ADMIN"
+                .claim("role", role)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    // Extract username from JWT token
+    // Extract username safely
     public String extractUsername(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .getSubject();
+        return getClaims(token).getSubject();
     }
 
-    // Extract role from JWT token
+    // Extract role
     public String extractRole(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .get("role", String.class);
+        return getClaims(token).get("role", String.class);
     }
 
-    // Validate JWT token against user details
+    // MAIN FIX HERE (safe validation)
     public boolean validateToken(String token, UserDetails userDetails) {
         try {
             String username = extractUsername(token);
 
-            return username.equals(userDetails.getUsername())
+            if (username == null || userDetails == null) return false;
+
+            return username.trim().equalsIgnoreCase(userDetails.getUsername().trim())
                     && !isTokenExpired(token);
 
         } catch (Exception e) {
@@ -59,18 +50,17 @@ public class JwtService {
         }
     }
 
-    // Check if token is expired
+    // Check expiration
     private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+        return getClaims(token).getExpiration().before(new Date());
     }
 
-    // Extract expiration date from JWT token
-    private Date extractExpiration(String token) {
+    // Centralized parsing (IMPORTANT FIX)
+    private Claims getClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()
                 .parseClaimsJws(token)
-                .getBody()
-                .getExpiration();
+                .getBody();
     }
 }

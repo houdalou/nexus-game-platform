@@ -1,6 +1,8 @@
 -- Clear old data
 DELETE FROM answer;
+DELETE FROM ratings;
 DELETE FROM question;
+DELETE FROM favorites;
 DELETE FROM game;
 
 -- ==========================================

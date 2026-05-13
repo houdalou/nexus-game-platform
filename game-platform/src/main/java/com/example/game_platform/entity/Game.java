@@ -1,5 +1,7 @@
 package com.example.game_platform.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -81,6 +83,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Game {
 
     @Id
@@ -101,18 +104,21 @@ public class Game {
     // One-to-many relationship with favorites (users who favorited this game)
     // Without JPA: Would need manual query: SELECT * FROM favorites WHERE game_id = ?
     @OneToMany(mappedBy = "game", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     // Without JPA: Would need manual cascade delete logic when game is deleted
     private List<Favorite> favorites;
 
     // One-to-many relationship with ratings (ratings for this game)
     // Without JPA: Would need manual query: SELECT * FROM ratings WHERE game_id = ?
     @OneToMany(mappedBy = "game", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     // Without JPA: Would need manual cascade delete logic when game is deleted
     private List<Rating> ratings;
 
     // One-to-many relationship with comments (comments on this game)
     // Without JPA: Would need manual query: SELECT * FROM comments WHERE game_id = ?
     @OneToMany(mappedBy = "game", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     // Without JPA: Would need manual cascade delete logic when game is deleted
     private List<Comment> comments;
 }

@@ -1,5 +1,7 @@
 package com.example.game_platform.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -99,6 +101,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class User implements UserDetails {
 
     // Primary key with auto-generation
@@ -147,18 +150,21 @@ public class User implements UserDetails {
     // One-to-many relationship with favorites (games user has favorited)
     // Without JPA: Would need manual query: SELECT * FROM favorites WHERE user_id = ?
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     // Without JPA: Would need manual cascade delete logic when user is deleted
     private List<Favorite> favorites;
 
     // One-to-many relationship with ratings (ratings user has given)
     // Without JPA: Would need manual query: SELECT * FROM ratings WHERE user_id = ?
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     // Without JPA: Would need manual cascade delete logic when user is deleted
     private List<Rating> ratings;
 
     // One-to-many relationship with comments (comments user has posted)
     // Without JPA: Would need manual query: SELECT * FROM comments WHERE user_id = ?
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     // Without JPA: Would need manual cascade delete logic when user is deleted
     private List<Comment> comments;
 
