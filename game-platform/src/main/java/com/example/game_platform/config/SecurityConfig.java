@@ -150,6 +150,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/scores/**").permitAll()
                         .requestMatchers("/api/arcade/**").authenticated()
 
+                        // User interaction endpoints require authentication
+                        // Without Spring: Would need manual session/token check in each Servlet
+                        .requestMatchers("/api/favorites/**").authenticated()
+                        .requestMatchers("/api/ratings/**").authenticated()
+                        .requestMatchers("/api/comments/**").authenticated()
+
                         // User profile endpoints require authentication
                         // Without Spring: Would need manual session/token check in each Servlet
                         .requestMatchers("/api/users/me").authenticated()
