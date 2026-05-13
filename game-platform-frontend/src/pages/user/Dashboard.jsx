@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Home, Trophy, Gamepad2, Award, User, Settings, Menu, X, LogOut,
+  Home, Trophy, Gamepad2, Award, User, Settings, Menu, X, LogOut, Heart, Star, MessageSquare,
 } from "lucide-react";
 import api from "../../api/axios";
 import scoreService from "../../services/scoreService";
@@ -51,6 +51,12 @@ export default function Dashboard() {
   const [loading, setLoading]         = useState(true);
   const [open, setOpen]               = useState(false);
   const [activeTab, setActiveTab]     = useState("games");
+  const [favorites, setFavorites]     = useState([]);
+  const [ratings, setRatings]         = useState({});
+  const [gameRatings, setGameRatings] = useState({});
+  const [comments, setComments]       = useState({});
+  const [commentInput, setCommentInput] = useState({});
+  const [showComments, setShowComments] = useState({});
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -58,7 +64,7 @@ export default function Dashboard() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) { navigate("/login"); return; }
-    Promise.all([fetchGames(), fetchLeaderboard(), fetchMe(), fetchScores()])
+    Promise.all([fetchGames(), fetchLeaderboard(), fetchMe(), fetchScores(), fetchFavorites(), fetchRatings()])
       .finally(() => setLoading(false));
   }, []);
 
@@ -82,6 +88,81 @@ export default function Dashboard() {
   };
   const fetchScores = async () => {
     try { const r = await api.get("/quiz/sessions/me"); setScores(r.data); } catch (e) { console.error(e); }
+  };
+  const fetchFavorites = async () => {
+    try { 
+      const r = await api.get("/favorites"); 
+      setFavorites(r.data || []);
+    } catch (e) { console.error(e); }
+  };
+  const fetchRatings = async () => {
+    try { 
+      const r = await api.get("/ratings"); 
+      const userRatings = {};
+      (r.data || []).forEach(rating => {
+        userRatings[rating.game.id] = rating.rating;
+      });
+      setRatings(userRatings);
+    } catch (e) { console.error(e); }
+  };
+  const fetchGameRating = async (gameId) => {
+    try { 
+      const r = await api.get(`/ratings/game/${gameId}/average`); 
+      setGameRatings(prev => ({ ...prev, [gameId]: r.data }));
+    } catch (e) { console.error(e); }
+  };
+
+  const toggleFavorite = async (gameId) => {
+    try {
+      const isFav = favorites.some(f => f.game.id === gameId);
+      if (isFav) {
+        await api.delete(`/favorites/${gameId}`);
+        setFavorites(prev => prev.filter(f => f.game.id !== gameId));
+      } else {
+        await api.post(`/favorites/${gameId}`);
+        const game = games.find(g => g.id === gameId);
+        if (game) setFavorites(prev => [...prev, { game }]);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const addRating = async (gameId, rating) => {
+    try {
+      await api.post(`/ratings/${gameId}`, { rating });
+      setRatings(prev => ({ ...prev, [gameId]: rating }));
+      fetchGameRating(gameId);
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchComments = async (gameId) => {
+    try {
+      const r = await api.get(`/comments/game/${gameId}`);
+      setComments(prev => ({ ...prev, [gameId]: r.data || [] }));
+    } catch (e) { console.error(e); }
+  };
+
+  const addComment = async (gameId) => {
+    const content = commentInput[gameId];
+    if (!content || !content.trim()) return;
+    try {
+      await api.post(`/comments/${gameId}`, { content: content.trim() });
+      setCommentInput(prev => ({ ...prev, [gameId]: "" }));
+      fetchComments(gameId);
+    } catch (e) { console.error(e); }
+  };
+
+  const deleteComment = async (commentId, gameId) => {
+    try {
+      await api.delete(`/comments/${commentId}`);
+      setComments(prev => ({ ...prev, [gameId]: prev[gameId].filter(c => c.id !== commentId) }));
+    } catch (e) { console.error(e); }
+  };
+
+  const toggleComments = async (gameId) => {
+    if (!showComments[gameId]) {
+      await fetchComments(gameId);
+    }
+    setShowComments(prev => ({ ...prev, [gameId]: !prev[gameId] }));
   };
 
   const logout = () => { localStorage.removeItem("token"); navigate("/login"); };
@@ -456,6 +537,96 @@ export default function Dashboard() {
         }
         .nx-play-btn:hover{background:var(--gc-bg-h,rgba(126,184,212,0.14));transform:translateY(-1px)}
 
+        /* ── INTERACTIONS ── */
+        .nx-game-actions{
+          display:flex;align-items:center;gap:8px;
+          margin-top:auto;padding-top:10px;
+          border-top:1px solid rgba(255,255,255,0.05);
+        }
+        .nx-fav-btn{
+          width:32px;height:32px;border-radius:8px;
+          border:1px solid rgba(255,255,255,0.1);
+          background:rgba(255,255,255,0.03);
+          color:rgba(200,210,220,0.4);
+          display:flex;align-items:center;justify-content:center;
+          cursor:pointer;transition:all 0.2s;flex-shrink:0;
+        }
+        .nx-fav-btn:hover{background:rgba(255,255,255,0.06);color:rgba(200,210,220,0.6)}
+        .nx-fav-btn.active{color:#e05c68;border-color:rgba(224,92,104,0.3);background:rgba(224,92,104,0.08)}
+        .nx-rating-stars{
+          display:flex;gap:3px;align-items:center;
+        }
+        .nx-star{
+          width:16px;height:16px;color:rgba(200,210,220,0.2);
+          cursor:pointer;transition:all 0.15s;
+        }
+        .nx-star:hover{color:rgba(200,210,220,0.5)}
+        .nx-star.filled{color:#e6b84a}
+        .nx-rating-display{
+          font-family:'JetBrains Mono',monospace;
+          font-size:9px;color:rgba(200,210,220,0.25);letter-spacing:0.5px;
+          display:flex;align-items:center;gap:4px;
+        }
+
+        /* ── COMMENTS ── */
+        .nx-comment-toggle{
+          font-family:'JetBrains Mono',monospace;
+          font-size:8px;letter-spacing:1px;text-transform:uppercase;
+          color:rgba(200,210,220,0.25);
+          cursor:pointer;display:flex;align-items:center;gap:4px;
+          transition:color 0.2s;
+        }
+        .nx-comment-toggle:hover{color:rgba(200,210,220,0.45)}
+        .nx-comments-section{
+          margin-top:12px;padding-top:12px;
+          border-top:1px solid rgba(255,255,255,0.05);
+          display:none;
+        }
+        .nx-comments-section.open{display:block}
+        .nx-comment-input-wrap{
+          display:flex;gap:8px;margin-bottom:10px;
+        }
+        .nx-comment-input{
+          flex:1;padding:8px 12px;border-radius:8px;
+          border:1px solid rgba(255,255,255,0.1);
+          background:rgba(10,13,24,0.9);
+          color:#d8dde8;
+          font-family:'Inter',sans-serif;
+          font-size:11px;outline:none;
+        }
+        .nx-comment-input:focus{border-color:rgba(126,184,212,0.3)}
+        .nx-comment-submit{
+          padding:8px 16px;border-radius:8px;
+          border:1px solid rgba(126,184,212,0.25);
+          background:rgba(126,184,212,0.08);
+          color:#7eb8d4;
+          font-family:'JetBrains Mono',monospace;
+          font-size:9px;letter-spacing:1px;text-transform:uppercase;
+          cursor:pointer;transition:all 0.2s;
+        }
+        .nx-comment-submit:hover{background:rgba(126,184,212,0.14)}
+        .nx-comment-list{display:flex;flex-direction:column;gap:8px}
+        .nx-comment-item{
+          background:rgba(10,13,24,0.9);
+          border:1px solid rgba(255,255,255,0.05);
+          border-radius:8px;padding:10px 12px;
+        }
+        .nx-comment-user{
+          font-size:11px;font-weight:600;color:#d8dde8;margin-bottom:4px;
+        }
+        .nx-comment-text{
+          font-size:11px;color:rgba(200,210,220,0.5);line-height:1.5;
+        }
+        .nx-comment-date{
+          font-family:'JetBrains Mono',monospace;
+          font-size:9px;color:rgba(200,210,220,0.2);margin-top:6px;
+        }
+        .nx-comment-delete{
+          font-size:8px;color:rgba(220,80,90,0.5);
+          cursor:pointer;transition:color 0.2s;
+        }
+        .nx-comment-delete:hover{color:rgba(220,80,90,0.8)}
+
         /* ── HISTORY ── */
         .nx-history{display:flex;flex-direction:column;gap:8px}
         .nx-hist-item{
@@ -691,6 +862,65 @@ export default function Dashboard() {
                           >{s.label}</div>
                           <div className="nx-game-title">{game.title}</div>
                           <div className="nx-game-desc">{game.description}</div>
+                          <div className="nx-game-actions">
+                            <button
+                              className={`nx-fav-btn ${favorites.some(f => f.game.id === game.id) ? "active" : ""}`}
+                              onClick={e => { e.stopPropagation(); toggleFavorite(game.id); }}
+                            >
+                              <Heart size={16} fill={favorites.some(f => f.game.id === game.id) ? "currentColor" : "none"} />
+                            </button>
+                            <div className="nx-rating-stars">
+                              {[1,2,3,4,5].map(star => (
+                                <Star
+                                  key={star}
+                                  size={14}
+                                  className={`nx-star ${ratings[game.id] && star <= ratings[game.id] ? "filled" : ""}`}
+                                  onClick={e => { e.stopPropagation(); addRating(game.id, star); }}
+                                />
+                              ))}
+                            </div>
+                            <div
+                              className="nx-comment-toggle"
+                              onClick={e => { e.stopPropagation(); toggleComments(game.id); }}
+                            >
+                              <MessageSquare size={12} />
+                              {comments[game.id]?.length || 0}
+                            </div>
+                          </div>
+                          <div className={`nx-comments-section ${showComments[game.id] ? "open" : ""}`}>
+                            <div className="nx-comment-input-wrap">
+                              <input
+                                className="nx-comment-input"
+                                placeholder="Add a comment…"
+                                value={commentInput[game.id] || ""}
+                                onChange={e => setCommentInput(prev => ({ ...prev, [game.id]: e.target.value }))}
+                                onKeyDown={e => { if (e.key === "Enter") addComment(game.id); }}
+                              />
+                              <button
+                                className="nx-comment-submit"
+                                onClick={e => { e.stopPropagation(); addComment(game.id); }}
+                              >Post</button>
+                            </div>
+                            <div className="nx-comment-list">
+                              {(comments[game.id] || []).map(comment => (
+                                <div key={comment.id} className="nx-comment-item">
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <div className="nx-comment-user">{comment.user.username}</div>
+                                    {comment.user.username === user?.username && (
+                                      <span
+                                        className="nx-comment-delete"
+                                        onClick={e => { e.stopPropagation(); deleteComment(comment.id, game.id); }}
+                                      >Delete</span>
+                                    )}
+                                  </div>
+                                  <div className="nx-comment-text">{comment.content}</div>
+                                  <div className="nx-comment-date">
+                                    {new Date(comment.createdAt).toLocaleDateString()}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                           <button
                             className="nx-play-btn"
                             onClick={e => { e.stopPropagation(); handlePlay(game); }}
